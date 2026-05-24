@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import * as L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { 
   GraduationCap, 
   MapPin, 
@@ -11,13 +13,18 @@ import {
   Compass, 
   MessageSquare, 
   ArrowRight,
+  ArrowUp,
   Star,
   Instagram,
   Facebook,
   Linkedin,
   Mail,
   Phone,
-  CheckCircle2
+  CheckCircle2,
+  Send,
+  User,
+  BookOpen,
+  ChevronDown
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 
@@ -285,20 +292,30 @@ const ProcessSection = () => {
       const scrollContainer = scrollContainerRef.current;
       if (!scrollContainer) return;
 
-      const totalWidth = scrollContainer.scrollWidth - window.innerWidth;
+      const getTotalWidth = () => {
+        const lastItem = scrollContainer.lastElementChild as HTMLElement | null;
+        if (!lastItem) return 0;
+        const finalRightEdge = lastItem.offsetLeft + lastItem.offsetWidth;
+        return Math.max(0, finalRightEdge - window.innerWidth + window.innerWidth * 0.06);
+      };
 
-      gsap.to(scrollContainer, {
-        x: -totalWidth,
-        ease: "none",
+      const getHold = () => window.innerHeight * 0.6;
+
+      const timeline = gsap.timeline({
         scrollTrigger: {
           trigger: sectionRef.current,
           pin: true,
-          scrub: 1,
-          start: "top top",
-          end: () => `+=${totalWidth}`,
+          scrub: 1.5,
+          start: "top 8%",
+          end: () => `+=${getTotalWidth() + getHold() * 2}`,
           invalidateOnRefresh: true,
         }
       });
+
+      timeline
+        .to(scrollContainer, { x: 0, duration: getHold, ease: "none" })
+        .to(scrollContainer, { x: () => -getTotalWidth(), duration: getTotalWidth, ease: "none" })
+        .to(scrollContainer, { x: () => -getTotalWidth(), duration: getHold, ease: "none" });
 
       // Animate the "flight line" connecting cards
       gsap.fromTo(".flight-line-path", 
@@ -307,8 +324,8 @@ const ProcessSection = () => {
           strokeDashoffset: 0,
           scrollTrigger: {
             trigger: sectionRef.current,
-            start: "top top",
-            end: () => `+=${totalWidth}`,
+            start: "top 8%",
+            end: () => `+=${getTotalWidth()}`,
             scrub: 1,
           }
         }
@@ -319,15 +336,16 @@ const ProcessSection = () => {
   }, []);
 
   return (
-    <section id="process" ref={sectionRef} className="relative h-screen bg-navy overflow-hidden">
-      <div className="absolute top-20 left-10 z-20">
+    <section id="process" ref={sectionRef} className="relative h-screen bg-navy">
+      <div className="absolute top-8 md:top-10 left-6 md:left-10 z-20 pointer-events-none">
         <span className="text-gold font-mono uppercase tracking-[0.3em] text-xs mb-2 block">The Journey</span>
-        <h2 className="text-5xl text-white font-heading">Our Flight Path</h2>
+        <h2 className="text-4xl md:text-5xl text-white font-heading">Our Flight Path</h2>
       </div>
 
-      <div ref={scrollContainerRef} className="flex h-full items-center px-[10vw] gap-[15vw] relative">
+      <div className="absolute inset-0 overflow-hidden">
+      <div ref={scrollContainerRef} className="flex h-full items-center pl-[10vw] pr-[6vw] gap-[12vw] pt-36 md:pt-40 relative">
         {/* Background Flight Path SVG */}
-        <div className="absolute top-1/2 left-0 w-[400vw] -translate-y-1/2 pointer-events-none opacity-20 z-0">
+        <div className="absolute top-1/2 left-0 w-full -translate-y-1/2 pointer-events-none opacity-20 z-0">
           <svg viewBox="0 0 4000 400" className="w-full h-[400px]">
             <path 
               className="flight-line-path"
@@ -381,11 +399,12 @@ const ProcessSection = () => {
           </div>
         </div>
       </div>
+      </div>
     </section>
   );
 };
 
-const DestinationSection = () => {
+const LegacyDestinationSection = () => {
   const destinations = [
     { id: 'london', name: 'London', img: imageSrc('london.jpg'), tags: 'UK · 9+ Years · Direct Embassy', coords: { x: 48, y: 32 } },
     { id: 'nyc', name: 'New York', img: imageSrc('nyc.jpg'), tags: 'USA · Ivy League · Top Tier', coords: { x: 25, y: 38 } },
@@ -494,6 +513,414 @@ const DestinationSection = () => {
   );
 };
 
+type Destination = {
+  id: string;
+  name: string;
+  shortName: string;
+  image: string;
+  tags: string[];
+  center: L.LatLngExpression;
+  zoom: number;
+  features: string[];
+};
+
+const DestinationLeafletMap = ({
+  destinations,
+  activeId,
+  onSelect,
+  onReset
+}: {
+  destinations: Destination[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  onReset: () => void;
+}) => {
+  const mapElementRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Record<string, L.Marker>>({});
+
+  useEffect(() => {
+    if (!mapElementRef.current || mapRef.current) return;
+
+    const map = L.map(mapElementRef.current, {
+      zoomControl: false,
+      scrollWheelZoom: false,
+      attributionControl: false,
+      minZoom: 2,
+      maxZoom: 6,
+      worldCopyJump: true
+    }).setView([20, 15], 2);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 6,
+      className: 'destination-map-tiles'
+    }).addTo(map);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    map.on('click', onReset);
+
+    destinations.forEach((dest) => {
+      const marker = L.marker(dest.center, {
+        icon: L.divIcon({
+          className: 'destination-marker',
+          html: `<span>${dest.shortName}</span>`,
+          iconSize: [84, 36],
+          iconAnchor: [42, 18]
+        })
+      })
+        .addTo(map);
+
+      markersRef.current[dest.id] = marker;
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markersRef.current = {};
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const activeDest = destinations.find((dest) => dest.id === activeId);
+    if (!activeDest) {
+      map.flyTo([20, 15], 2, {
+        animate: true,
+        duration: 1
+      });
+    } else {
+      map.flyTo(activeDest.center, activeDest.zoom, {
+        animate: true,
+        duration: 1
+      });
+    }
+
+    Object.entries(markersRef.current).forEach(([id, marker]) => {
+      const element = marker.getElement();
+      element?.classList.toggle('is-active', id === activeId);
+    });
+  }, [destinations, activeId]);
+
+  useEffect(() => {
+    Object.values(markersRef.current).forEach((marker) => {
+      marker.off('click');
+      marker.on('click', (event) => {
+        L.DomEvent.stopPropagation(event);
+        const selected = destinations.find((dest) => marker === markersRef.current[dest.id]);
+        if (!selected) return;
+        if (activeId === selected.id) {
+          onReset();
+          return;
+        }
+        onSelect(selected.id);
+      });
+    });
+  }, [destinations, activeId, onReset, onSelect]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    map.off('click');
+    map.on('click', onReset);
+
+    return () => {
+      map.off('click', onReset);
+    };
+  }, [onReset]);
+
+  return <div ref={mapElementRef} className="absolute inset-0 z-0" />;
+};
+
+const DestinationSection = () => {
+  const destinations: Destination[] = [
+    {
+      id: 'uk',
+      name: 'United Kingdom',
+      shortName: 'UK',
+      image: imageSrc('london.jpg'),
+      tags: ['Career-focused', 'Shorter programs', 'Strong alumni routes'],
+      center: [54.5, -3.4],
+      zoom: 4,
+      features: [
+        'Globally understood degrees with career-ready program structures.',
+        'One-year master routes can reduce living cost and time away.',
+        'Strong part-time work culture and post-study career pathways.'
+      ]
+    },
+    {
+      id: 'spain',
+      name: 'Spain',
+      shortName: 'Spain',
+      image: imageSrc('barcelona.jpg'),
+      tags: ['Schengen access', 'Affordable lifestyle', 'Warm student cities'],
+      center: [40.4, -3.7],
+      zoom: 5,
+      features: [
+        'Practical European study routes with an accessible cost of living.',
+        'Schengen-region exposure helps students build wider global mobility.',
+        'A strong fit for hospitality, business, design, tech, and language growth.'
+      ]
+    },
+    {
+      id: 'dubai',
+      name: 'Dubai',
+      shortName: 'Dubai',
+      image: imageSrc('dubai.jpg'),
+      tags: ['Close to India', 'Business hub', 'Fast-growing market'],
+      center: [25.2, 55.3],
+      zoom: 6,
+      features: [
+        'A global business environment with strong internship visibility.',
+        'Closer travel, familiar regional networks, and modern student facilities.',
+        'Good route for students who want international exposure near home.'
+      ]
+    },
+    {
+      id: 'usa',
+      name: 'United States',
+      shortName: 'USA',
+      image: imageSrc('nyc.jpg'),
+      tags: ['Flexible pathways', 'Research culture', 'Large job market'],
+      center: [39.8, -98.6],
+      zoom: 3,
+      features: [
+        'Flexible academic pathways for students still shaping their specialization.',
+        'Large professional market with exposure to innovation-led industries.',
+        'Strong fit for STEM, business, healthcare, media, and entrepreneurship.'
+      ]
+    },
+    {
+      id: 'australia',
+      name: 'Australia',
+      shortName: 'Australia',
+      image: imageSrc('australia.jpg'),
+      tags: ['Student-friendly', 'Work options', 'Clear pathways'],
+      center: [-25.3, 133.8],
+      zoom: 4,
+      features: [
+        'Student-friendly cities with structured work and settlement pathways.',
+        'Clear application cycles and practical programs across key industries.',
+        'Popular for students seeking quality of life with international exposure.'
+      ]
+    },
+    {
+      id: 'europe',
+      name: 'Europe',
+      shortName: 'Europe',
+      image: imageSrc('europe.jpg'),
+      tags: ['Multiple routes', 'Cultural mobility', 'Value-led choices'],
+      center: [48.5, 12.5],
+      zoom: 4,
+      features: [
+        'Multiple country pathways for students comparing cost, language, and career goals.',
+        'Excellent cultural exposure with access to varied industries and lifestyles.',
+        'Good fit when students want options beyond a single destination track.'
+      ]
+    }
+  ];
+
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const cardsSectionRef = useRef<HTMLElement>(null);
+  const cardsViewportRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const activeDest = destinations.find((dest) => dest.id === activeId);
+  const profileDest = activeDest ?? destinations[0];
+
+  const selectDest = (id: string) => {
+    setActiveId((currentId) => currentId === id ? null : id);
+  };
+
+  const resetMap = () => {
+    setActiveId(null);
+  };
+
+  useEffect(() => {
+    const section = cardsSectionRef.current;
+    const viewport = cardsViewportRef.current;
+    const rail = railRef.current;
+    if (!section || !viewport || !rail) return;
+
+    const ctx = gsap.context(() => {
+      const getDistance = () => Math.max(0, rail.scrollWidth - viewport.clientWidth);
+      const getHold = () => window.innerHeight * 0.6;
+
+      const timeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          pin: true,
+          pinSpacing: true,
+          anticipatePin: 1,
+          scrub: 1.5,
+          start: 'top 8%',
+          end: () => `+=${getDistance() + getHold() * 2}`,
+          invalidateOnRefresh: true,
+          onUpdate: (self) => {
+            const index = Math.min(destinations.length - 1, Math.round(self.progress * (destinations.length - 1)));
+            setActiveId((currentId) => currentId === null ? currentId : destinations[index].id);
+          }
+        }
+      });
+
+      timeline
+        .to(rail, { x: 0, duration: getHold, ease: 'none' })
+        .to(rail, { x: () => -getDistance(), duration: getDistance, ease: 'none' })
+        .to(rail, { x: () => -getDistance(), duration: getHold, ease: 'none' });
+    }, section);
+
+    const refresh = window.setTimeout(() => ScrollTrigger.refresh(), 250);
+
+    return () => {
+      window.clearTimeout(refresh);
+      ctx.revert();
+    };
+  }, []);
+
+  return (
+    <section id="destinations" className="py-24 bg-white overflow-hidden">
+      <div className="container mx-auto px-6">
+        <div className="mb-16 max-w-3xl">
+          <span className="text-gold font-mono uppercase tracking-widest text-sm mb-4 block">Global Reach</span>
+          <h2 className="text-5xl md:text-6xl text-navy mb-6">Choose Your Study Destination</h2>
+          <p className="text-navy/60 text-xl leading-relaxed">
+            Explore the countries and regions we guide for, then compare the practical advantages that matter before you apply.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-stretch mb-14">
+          <div className="relative min-h-[560px] bg-navy overflow-hidden rounded-[32px] border border-navy/10">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(212,160,23,0.25),transparent_32%),radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.12),transparent_28%)]" />
+            <div className="absolute top-8 left-8 right-8 z-10 flex items-center justify-between gap-6">
+              <div>
+                <div className="text-gold font-mono text-xs uppercase tracking-[0.24em] mb-2">Interactive Leaflet Map</div>
+                <div className="text-white text-3xl font-heading">{activeDest ? activeDest.name : 'Global Overview'}</div>
+              </div>
+              <Globe2 className="w-8 h-8 text-gold" />
+            </div>
+            <DestinationLeafletMap destinations={destinations} activeId={activeId} onSelect={selectDest} onReset={resetMap} />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-navy to-transparent" />
+          </div>
+
+          <motion.div
+            key={activeDest?.id ?? 'overview'}
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="bg-navy text-white p-8 md:p-10 rounded-[32px] relative overflow-hidden"
+          >
+            <img src={profileDest.image} alt={profileDest.name} className="absolute inset-0 h-full w-full object-cover opacity-20" />
+            <div className="absolute inset-0 bg-gradient-to-br from-navy via-navy/92 to-navy/70" />
+            <div className="relative z-10">
+              <div className="text-gold font-mono text-xs uppercase tracking-[0.24em] mb-5">
+                {activeDest ? 'Destination Profile' : 'Global Coverage'}
+              </div>
+              <h3 className="text-4xl md:text-5xl font-heading mb-5">
+                {activeDest ? activeDest.name : 'Where We Guide'}
+              </h3>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {destinations.map((dest) => (
+                  <button
+                    key={dest.id}
+                    type="button"
+                    onClick={() => selectDest(dest.id)}
+                    className={`border px-3 py-1 rounded-full text-[11px] uppercase tracking-widest transition-all focus:outline-none focus:ring-2 focus:ring-gold/60 ${
+                      activeDest?.id === dest.id
+                        ? 'bg-gold text-navy border-gold'
+                        : 'border-gold/30 bg-gold/10 text-gold hover:bg-gold hover:text-navy'
+                    }`}
+                  >
+                    {dest.shortName}
+                  </button>
+                ))}
+              </div>
+              {activeDest && (
+                <div className="flex flex-wrap gap-2 mb-8">
+                  {activeDest.tags.map((tag) => (
+                    <span key={tag} className="border border-gold/30 bg-gold/10 text-gold px-3 py-1 rounded-full text-[11px] uppercase tracking-widest">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="space-y-5">
+                {(activeDest ? activeDest.features : [
+                  'Click a highlighted destination to zoom into countries and regions we support.',
+                  'Click the active destination again to return to the whole-world view.',
+                  'Click anywhere outside our destination markers to reset and compare the full coverage map.'
+                ]).map((feature, index) => (
+                  <div key={feature} className="flex gap-4">
+                    <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold text-navy font-mono text-xs font-bold">
+                      {index + 1}
+                    </div>
+                    <p className="text-white/72 leading-relaxed">{feature}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+        
+        <section ref={cardsSectionRef} className="min-h-screen overflow-hidden pt-10 pb-10 flex flex-col justify-center">
+          <div className="mb-8 flex items-end justify-between gap-8">
+            <div>
+              <span className="text-gold font-mono uppercase tracking-widest text-sm mb-3 block">Destination Cards</span>
+              <h3 className="text-4xl md:text-5xl text-navy">Compare Every Country</h3>
+            </div>
+            <p className="hidden max-w-md text-right text-navy/55 lg:block">
+              Scroll down here to move sideways through every country we support.
+            </p>
+          </div>
+          <div ref={cardsViewportRef} className="overflow-hidden">
+          <div 
+            ref={railRef}
+            className="flex w-max gap-6 will-change-transform"
+          >
+          {destinations.map((dest) => (
+            <motion.button 
+              id={`dest-${dest.id}`}
+              key={dest.id}
+              type="button"
+              onClick={() => selectDest(dest.id)}
+              whileHover={{ y: -10 }}
+              animate={{
+                scale: activeId === dest.id ? 1.02 : 1,
+                borderColor: activeId === dest.id ? 'rgba(212,160,23,1)' : 'rgba(10,22,40,0.08)'
+              }}
+              className="flex-shrink-0 w-[280px] md:w-[360px] h-[460px] relative rounded-[28px] overflow-hidden group snap-center border-2 text-left transition-colors duration-500"
+            >
+              <img 
+                src={dest.image} 
+                alt={dest.name} 
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/25 to-transparent opacity-90" />
+              <div className={`absolute inset-0 bg-gold/10 transition-opacity duration-500 ${activeId === dest.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+              
+              <div className="absolute bottom-8 left-8 right-8">
+                <div className="text-gold font-mono text-xs uppercase tracking-[0.22em] mb-3">{dest.shortName}</div>
+                <h3 className="text-white font-hero italic text-4xl mb-4">{dest.name}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {dest.tags.slice(0, 2).map((tag) => (
+                    <span key={tag} className="text-[10px] uppercase tracking-widest text-white/70 border border-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </motion.button>
+          ))}
+          </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+};
+
 const FounderSpotlight = () => {
   return (
     <section id="founder" className="py-32 bg-white overflow-hidden">
@@ -582,36 +1009,52 @@ const ServicesGrid = () => {
 
 const Testimonials = () => {
   const reviews = [
-    { name: "Arjun Mehta", uni: "LSE, London", quote: "The precision in my visa documentation was unmatched. They made a complex process feel like a breeze.", flag: "🇬🇧" },
-    { name: "Sarah Khan", uni: "Columbia, NY", quote: "Pooja's insights into US admissions changed my entire strategy. I landed my dream Ivy League spot.", flag: "🇺🇸" },
-    { name: "Rahul Varma", uni: "INSEAD, France", quote: "From profile building to post-landing support, Academic Pilots were with me every step of the way.", flag: "🇫🇷" }
+    { name: "Arjun Mehta", country: "United Kingdom", quote: "The precision in my documentation was unmatched. They made a complex process feel calm, clear, and genuinely manageable.", flag: "🇬🇧" },
+    { name: "Sarah Khan", country: "United States", quote: "The team helped me understand my options without pushing one path. My profile felt stronger because every step had a reason.", flag: "🇺🇸" },
+    { name: "Rahul Varma", country: "Europe", quote: "From shortlisting to visa preparation, Academic Pilots stayed with me through every detail and every deadline.", flag: "🇪🇺" },
+    { name: "Nisha Rao", country: "Spain", quote: "I wanted an affordable European route, and they helped me compare the real lifestyle, cost, and career fit before applying.", flag: "🇪🇸" },
+    { name: "Kabir Singh", country: "Dubai", quote: "Dubai felt confusing at first, but their guidance made the route practical. I knew exactly what documents and timelines mattered.", flag: "🇦🇪" },
+    { name: "Meera Iyer", country: "Australia", quote: "They explained the process in simple language and helped my family understand the bigger picture beyond just admission.", flag: "🇦🇺" },
+    { name: "Ayaan Kapoor", country: "United Kingdom", quote: "The best part was how personal it felt. They did not treat my application like a template.", flag: "🇬🇧" },
+    { name: "Zara Sheikh", country: "United States", quote: "My application strategy became much sharper after the profile review. It gave me confidence instead of guesswork.", flag: "🇺🇸" }
   ];
+  const marqueeReviews = [...reviews, ...reviews];
 
   return (
-    <section className="py-32 bg-navy relative overflow-hidden">
+    <section className="py-20 bg-navy relative overflow-hidden">
       <div className="container mx-auto px-6 relative z-10">
-        <div className="text-center mb-20">
-          <h2 className="text-5xl text-white">Student Stories</h2>
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+          <div>
+            <span className="text-gold font-mono uppercase tracking-widest text-sm mb-3 block">Student Stories</span>
+            <h2 className="text-4xl md:text-5xl text-white">Real Journeys, Global Goals</h2>
+          </div>
+          <p className="text-white/50 max-w-md md:text-right">
+            Country-focused guidance, clear paperwork, and steady support from profile review to departure.
+          </p>
         </div>
         
-        <div className="flex gap-8 overflow-x-auto pb-12 no-scrollbar">
-          {reviews.map((rev, i) => (
-            <div key={i} className="min-w-[400px] glass p-10 rounded-3xl border border-white/10">
-              <div className="flex gap-1 mb-6">
-                {[...Array(5)].map((_, j) => <Star key={j} className="w-5 h-5 fill-gold text-gold" />)}
+        <div className="relative overflow-hidden py-3 testimonial-marquee-mask">
+          <div className="testimonial-marquee-track flex w-max items-stretch gap-6">
+          {marqueeReviews.map((rev, i) => (
+            <div key={`${rev.name}-${i}`} className="flex min-h-[260px] w-[310px] md:w-[360px] shrink-0 flex-col justify-between bg-white/8 backdrop-blur-[2px] p-6 rounded-2xl border border-white/10">
+              <div>
+              <div className="flex gap-1 mb-4">
+                {[...Array(5)].map((_, j) => <Star key={j} className="w-4 h-4 fill-gold text-gold" />)}
               </div>
-              <p className="text-white font-hero italic text-2xl mb-8 leading-relaxed">"{rev.quote}"</p>
+              <p className="text-white font-hero italic text-lg leading-relaxed">"{rev.quote}"</p>
+              </div>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gold/20 flex items-center justify-center text-2xl">
+                <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-xl">
                   {rev.flag}
                 </div>
                 <div>
                   <div className="text-white font-bold">{rev.name}</div>
-                  <div className="text-gold/60 text-sm font-mono">{rev.uni}</div>
+                  <div className="text-gold/60 text-sm font-mono uppercase tracking-widest">{rev.country}</div>
                 </div>
               </div>
             </div>
           ))}
+          </div>
         </div>
       </div>
     </section>
@@ -620,9 +1063,9 @@ const Testimonials = () => {
 
 const Differentiators = () => {
   const blocks = [
-    { num: "01", title: "Risk Mitigation", body: "Our zero-error philosophy means we catch issues before the embassy does. Your peace of mind is our priority.", icon: <CheckCircle2 className="w-8 h-8" /> },
-    { num: "02", title: "Direct Connections", body: "Direct relations with university admissions and embassy liaison offices ensure faster turnaround and accurate info.", icon: <Globe2 className="w-8 h-8" /> },
-    { num: "03", title: "Zero-Error Philosophy", body: "Every application undergoes a 3-tier audit process by our senior consultants to ensure perfection.", icon: <FileCheck className="w-8 h-8" /> }
+    { num: "01", title: "Risk Mitigation", body: "Our zero-error philosophy means we catch issues before the embassy does. Your peace of mind is our priority.", icon: <CheckCircle2 className="w-8 h-8" />, img: imageSrc('risk-mitigation.jpg') },
+    { num: "02", title: "Direct Connections", body: "Direct relations with university admissions and embassy liaison offices ensure faster turnaround and accurate info.", icon: <Globe2 className="w-8 h-8" />, img: imageSrc('direct-connections.jpg') },
+    { num: "03", title: "Zero-Error Philosophy", body: "Every application undergoes a 3-tier audit process by our senior consultants to ensure perfection.", icon: <FileCheck className="w-8 h-8" />, img: imageSrc('zero-error.jpg') }
   ];
 
   return (
@@ -641,9 +1084,12 @@ const Differentiators = () => {
               </div>
             </div>
             <div className="flex-1 w-full h-[400px] bg-navy/5 rounded-3xl overflow-hidden relative group">
-               <div className="absolute inset-0 bg-gradient-to-br from-gold/5 to-navy/5 transition-colors group-hover:from-gold/10 group-hover:to-navy/10" />
-               <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-32 h-32 border border-gold/20 rounded-full animate-ping" />
+               <img src={block.img} alt={block.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+               <div className="absolute inset-0 bg-gradient-to-br from-navy/70 via-navy/20 to-gold/20" />
+               <div className="absolute bottom-8 left-8 right-8">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gold text-navy shadow-lg shadow-gold/20">
+                    {block.icon}
+                  </div>
                </div>
             </div>
           </div>
@@ -653,23 +1099,307 @@ const Differentiators = () => {
   );
 };
 
-const CTABanner = () => {
+const ConsultationForm = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    country: '',
+    message: ''
+  });
+  const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const countries = [
+    'United Kingdom',
+    'United States',
+    'Canada',
+    'Australia',
+    'Dubai / UAE',
+    'Spain',
+    'Germany',
+    'France',
+    'Other Europe',
+    'Not Sure Yet'
+  ];
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email address';
+    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
+    else if (!/^[\d\s\+\-\(\)]{7,20}$/.test(formData.phone)) newErrors.phone = 'Enter a valid phone number';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    const message = `📋 *New Consultation Request* 🎓
+
+━━━━━━━━━━━━━━━━━━
+
+*👤 Name:* ${formData.name}
+*📧 Email:* ${formData.email}
+*📞 Phone:* ${formData.phone}
+*🌍 Destination:* ${formData.country || 'Not specified'}
+
+━━━━━━━━━━━━━━━━━━
+
+*💬 Message:*\n${formData.message || 'No message provided'}
+
+━━━━━━━━━━━━━━━━━━
+_Submitted via Academic Pilots Website_`;
+
+    const encoded = encodeURIComponent(message);
+    window.open(`https://wa.me/917292022912?text=${encoded}`, '_blank', 'noopener,noreferrer');
+    
+    setSubmitted(true);
+    setFormData({ name: '', email: '', phone: '', country: '', message: '' });
+    setTimeout(() => setSubmitted(false), 5000);
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => {
+        const copy = { ...prev };
+        delete copy[field];
+        return copy;
+      });
+    }
+  };
+
+  const inputClass = (field: string) => `
+    w-full bg-transparent border-b-2 px-1 pb-3 pt-6 text-white placeholder:text-white/25 
+    outline-none transition-all duration-300 text-lg
+    ${errors[field] ? 'border-red-400/70' : 'border-white/15 focus:border-gold hover:border-white/30'}
+  `;
+
   return (
-    <section className="relative h-[80vh] flex items-center overflow-hidden">
-      <div className="absolute inset-0 bg-navy" />
-      
-      <div className="container mx-auto px-6 text-center relative z-10">
-        <h2 className="text-white text-5xl md:text-8xl mb-12 font-heading">
-          Ready to Chart Your <i className="font-hero italic text-gold">Course?</i>
-        </h2>
-        <div className="flex flex-col md:flex-row gap-6 justify-center">
-          <button className="bg-gold text-navy px-12 py-5 rounded-full font-bold text-xl hover:bg-white transition-all transform hover:scale-105 shadow-2xl shadow-gold/30">
-            Book Free Consultation
-          </button>
-          <button className="border border-white/30 text-white px-12 py-5 rounded-full font-bold text-xl hover:bg-white/10 transition-all flex items-center justify-center gap-3">
-             <MessageSquare className="w-6 h-6" />
-             WhatsApp Us
-          </button>
+    <section className="relative py-32 overflow-hidden bg-navy">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-gold/3 blur-[120px]" />
+        <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-white/3 blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-gold/6 to-transparent" />
+        {/* Grid pattern overlay */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.03]">
+          <defs>
+            <pattern id="form-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#form-grid)" />
+        </svg>
+      </div>
+
+      <div className="container mx-auto px-6 relative z-10">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-16">
+            <span className="text-gold font-mono uppercase tracking-[0.28em] text-sm mb-5 block">Get Started</span>
+            <h2 className="text-5xl md:text-7xl text-white font-heading mb-6">
+              Book Your Free<br className="md:hidden" /> <i className="font-hero italic text-gold">Consultation</i>
+            </h2>
+            <p className="text-white/45 text-lg max-w-2xl mx-auto leading-relaxed">
+              Tell us about yourself and we'll map out your global education pathway — no commitment, just clarity.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-[1.3fr_0.7fr] gap-12 xl:gap-20 items-start">
+            {/* Form Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className="relative"
+            >
+              <div className="relative bg-white/[0.04] backdrop-blur-xl rounded-[32px] p-8 md:p-12 border border-white/10 shadow-2xl shadow-black/20">
+                {/* Glow accent */}
+                <div className="absolute -top-px left-12 right-12 h-[1px] bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
+                
+                {submitted ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center justify-center py-16 text-center"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-gold/20 flex items-center justify-center mb-8">
+                      <CheckCircle2 className="w-10 h-10 text-gold" />
+                    </div>
+                    <h3 className="text-3xl text-white font-heading mb-4">Thank You!</h3>
+                    <p className="text-white/50 max-w-sm leading-relaxed">
+                      Your request has been submitted. We'll connect with you on WhatsApp shortly to discuss your study abroad journey.
+                    </p>
+                  </motion.div>
+                ) : (
+                  <form onSubmit={handleSubmit} className="space-y-1">
+                    <div className="grid md:grid-cols-2 gap-x-8">
+                      {/* Name */}
+                      <div className="relative">
+                        <label className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">Full Name *</label>
+                        <input
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => handleChange('name', e.target.value)}
+                          placeholder="Your full name"
+                          className={inputClass('name')}
+                        />
+                        {errors.name && <p className="text-red-400/80 text-xs mt-2 font-mono">{errors.name}</p>}
+                      </div>
+
+                      {/* Email */}
+                      <div className="relative">
+                        <label className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">Email Address *</label>
+                        <input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => handleChange('email', e.target.value)}
+                          placeholder="you@example.com"
+                          className={inputClass('email')}
+                        />
+                        {errors.email && <p className="text-red-400/80 text-xs mt-2 font-mono">{errors.email}</p>}
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-x-8">
+                      {/* Phone */}
+                      <div className="relative">
+                        <label className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">Phone Number *</label>
+                        <input
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => handleChange('phone', e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className={inputClass('phone')}
+                        />
+                        {errors.phone && <p className="text-red-400/80 text-xs mt-2 font-mono">{errors.phone}</p>}
+                      </div>
+
+                      {/* Country Dropdown */}
+                      <div className="relative">
+                        <label className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">Target Destination</label>
+                        <div className="relative">
+                          <select
+                            value={formData.country}
+                            onChange={(e) => handleChange('country', e.target.value)}
+                            className={`w-full bg-transparent border-b-2 px-1 pb-3 pt-6 text-white outline-none appearance-none transition-all duration-300 text-lg cursor-pointer ${
+                              formData.country ? 'text-white' : 'text-white/25'
+                            } border-white/15 focus:border-gold hover:border-white/30`}
+                          >
+                            <option value="" disabled className="bg-navy text-white/40">Select a country</option>
+                            {countries.map((c) => (
+                              <option key={c} value={c} className="bg-navy text-white">{c}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-1 bottom-3 w-4 h-4 text-white/30 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Message */}
+                    <div className="relative pt-2">
+                      <label className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">Your Message</label>
+                      <textarea
+                        value={formData.message}
+                        onChange={(e) => handleChange('message', e.target.value)}
+                        placeholder="Tell us about your academic background, preferred countries, or any specific questions..."
+                        rows={4}
+                        className={`w-full bg-transparent border-b-2 px-1 pb-3 pt-6 text-white placeholder:text-white/25 outline-none transition-all duration-300 text-lg resize-none ${
+                          errors.message ? 'border-red-400/70' : 'border-white/15 focus:border-gold hover:border-white/30'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Submit */}
+                    <div className="pt-10">
+                      <button
+                        type="submit"
+                        className="group relative w-full overflow-hidden rounded-full bg-gold px-8 py-5 font-bold text-navy text-lg transition-all duration-500 hover:shadow-2xl hover:shadow-gold/30 hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <span className="relative z-10 flex items-center justify-center gap-3">
+                          Send via WhatsApp
+                          <Send className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+                        </span>
+                        <div className="absolute inset-0 bg-gradient-to-r from-gold via-amber-300 to-gold opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      </button>
+                      <p className="text-white/25 text-xs text-center mt-4 font-mono">
+                        Your details are sent securely via WhatsApp · No spam, ever.
+                      </p>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Info Sidebar */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
+              className="space-y-8"
+            >
+              <div className="bg-white/[0.04] backdrop-blur-xl rounded-[24px] p-8 border border-white/10">
+                <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mb-6">
+                  <MessageSquare className="w-6 h-6 text-gold" />
+                </div>
+                <h4 className="text-white text-xl font-heading mb-3">Prefer to text us directly?</h4>
+                <p className="text-white/40 leading-relaxed mb-6 text-sm">
+                  Reach out on WhatsApp right now — no forms, no waiting.
+                </p>
+                <a
+                  href="https://wa.me/917292022912"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 text-gold hover:text-white transition-colors group font-medium"
+                >
+                  <span className="w-8 h-8 rounded-full border border-gold/30 flex items-center justify-center group-hover:bg-gold group-hover:text-navy transition-all">
+                    <svg viewBox="0 0 32 32" className="w-4 h-4" fill="currentColor">
+                      <path d="M16 0C7.164 0 0 7.164 0 16c0 3.042.85 5.882 2.324 8.286L.762 29.432a.8.8 0 0 0 .986.986l5.16-1.558A15.893 15.893 0 0 0 16 32c8.836 0 16-7.164 16-16S24.836 0 16 0zm0 29.333a13.317 13.317 0 0 1-6.832-1.938.8.8 0 0 0-.664-.074l-4.106 1.24 1.244-4.06a.8.8 0 0 0-.072-.662A13.267 13.267 0 0 1 2.667 16C2.667 8.648 8.648 2.667 16 2.667S29.333 8.648 29.333 16 23.352 29.333 16 29.333z" />
+                      <path d="M22.5 18.6c-.6-.3-3.6-1.8-4.2-2-.6-.2-.9-.3-1.3.3s-1.5 2-1.8 2.4c-.3.3-.6.4-1.2.1-.6-.3-2.344-1.172-3.5-2.5-1.172-1.328-1.5-1.8-1.7-2.3-.2-.5-.024-.7.15-.9.15-.15.3-.3.5-.5.2-.2.3-.3.4-.5.1-.2.05-.4-.024-.5-.074-.1-.667-1.6-.914-2.2-.24-.6-.48-.5-.66-.5h-.6c-.2 0-.5.07-.8.38-.3.3-1.2 1.2-1.2 2.9s1.2 3.5 1.4 3.7c.2.2 2.378 3.7 5.778 5.2 2.9 1.3 3.5 1.2 4.1 1.1.7-.1 2.2-.9 2.5-1.8.3-.9.3-1.6.2-1.8-.1-.1-.3-.2-.9-.5z" />
+                    </svg>
+                  </span>
+                  +91 72920 22912
+                </a>
+              </div>
+
+              <div className="bg-white/[0.04] backdrop-blur-xl rounded-[24px] p-8 border border-white/10">
+                <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mb-6">
+                  <BookOpen className="w-6 h-6 text-gold" />
+                </div>
+                <h4 className="text-white text-xl font-heading mb-3">What to expect</h4>
+                <ul className="space-y-4">
+                  {[
+                    'Personalized university shortlist based on your profile',
+                    'Transparent fee structure & scholarship opportunities',
+                    'Step-by-step application & visa roadmap',
+                    'Direct connect with our senior consultants'
+                  ].map((item, i) => (
+                    <li key={i} className="flex gap-4 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-gold shrink-0 mt-0.5" />
+                      <span className="text-white/40">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-white/[0.04] backdrop-blur-xl rounded-[24px] p-8 border border-white/10">
+                <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mb-6">
+                  <User className="w-6 h-6 text-gold" />
+                </div>
+                <h4 className="text-white text-xl font-heading mb-3">Speak to Pooja</h4>
+                <p className="text-white/40 leading-relaxed text-sm">
+                  Book a 1-on-1 session with our founder for a deep-dive into your global education strategy.
+                </p>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
     </section>
@@ -678,7 +1408,7 @@ const CTABanner = () => {
 
 const Footer = () => {
   return (
-    <footer className="bg-navy text-white pt-24 pb-12">
+    <footer className="bg-navy/95 text-white pt-24 pb-12 border-t border-white/5">
       <div className="container mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-16 mb-20">
           <div className="col-span-1 md:col-span-1">
@@ -775,10 +1505,259 @@ const CustomCursor = () => {
   );
 };
 
+const ScrollProgressBar = () => {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 0;
+      setProgress(pct);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  return (
+    <div className="fixed top-0 left-0 w-full h-[3px] z-[9999] pointer-events-none">
+      <div className="absolute inset-0 bg-white/10" />
+      <div
+        className="absolute inset-y-0 left-0 bg-gold transition-[width] duration-100 ease-out"
+        style={{ width: `${progress * 100}%` }}
+      />
+    </div>
+  );
+};
+
+const FloatingButtons = () => {
+  const [show, setShow] = useState(false);
+  const [callPopupOpen, setCallPopupOpen] = useState(false);
+  const [waPopupOpen, setWaPopupOpen] = useState(false);
+  const callPopupRef = useRef<HTMLDivElement>(null);
+  const callBtnRef = useRef<HTMLDivElement>(null);
+  const waPopupRef = useRef<HTMLDivElement>(null);
+  const waBtnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShow(window.scrollY > window.innerHeight * 0.5);
+      if (callPopupOpen) setCallPopupOpen(false);
+      if (waPopupOpen) setWaPopupOpen(false);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [callPopupOpen, waPopupOpen]);
+
+  // Close popups when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        callPopupRef.current &&
+        !callPopupRef.current.contains(e.target as Node) &&
+        callBtnRef.current &&
+        !callBtnRef.current.contains(e.target as Node)
+      ) {
+        setCallPopupOpen(false);
+      }
+      if (
+        waPopupRef.current &&
+        !waPopupRef.current.contains(e.target as Node) &&
+        waBtnRef.current &&
+        !waBtnRef.current.contains(e.target as Node)
+      ) {
+        setWaPopupOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openWhatsApp = (msg?: string) => {
+    const defaultMsg = "Hi! I'm interested in learning more about Academic Pilots' study abroad services. Can you guide me through the process?";
+    const text = encodeURIComponent(msg || defaultMsg);
+    window.open(`https://wa.me/917292022912?text=${text}`, '_blank', 'noopener,noreferrer');
+    setWaPopupOpen(false);
+  };
+
+  const WhatsAppIcon = ({ className }: { className?: string }) => (
+    <svg
+      viewBox="0 0 32 32"
+      className={`h-7 w-7 transition-transform duration-300 group-hover:scale-110 ${className ?? ''}`}
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M16 0C7.164 0 0 7.164 0 16c0 3.042.85 5.882 2.324 8.286L.762 29.432a.8.8 0 0 0 .986.986l5.16-1.558A15.893 15.893 0 0 0 16 32c8.836 0 16-7.164 16-16S24.836 0 16 0zm0 29.333a13.317 13.317 0 0 1-6.832-1.938.8.8 0 0 0-.664-.074l-4.106 1.24 1.244-4.06a.8.8 0 0 0-.072-.662A13.267 13.267 0 0 1 2.667 16C2.667 8.648 8.648 2.667 16 2.667S29.333 8.648 29.333 16 23.352 29.333 16 29.333z" />
+      <path d="M22.5 18.6c-.6-.3-3.6-1.8-4.2-2-.6-.2-.9-.3-1.3.3s-1.5 2-1.8 2.4c-.3.3-.6.4-1.2.1-.6-.3-2.344-1.172-3.5-2.5-1.172-1.328-1.5-1.8-1.7-2.3-.2-.5-.024-.7.15-.9.15-.15.3-.3.5-.5.2-.2.3-.3.4-.5.1-.2.05-.4-.024-.5-.074-.1-.667-1.6-.914-2.2-.24-.6-.48-.5-.66-.5h-.6c-.2 0-.5.07-.8.38-.3.3-1.2 1.2-1.2 2.9s1.2 3.5 1.4 3.7c.2.2 2.378 3.7 5.778 5.2 2.9 1.3 3.5 1.2 4.1 1.1.7-.1 2.2-.9 2.5-1.8.3-.9.3-1.6.2-1.8-.1-.1-.3-.2-.9-.5z" />
+    </svg>
+  );
+
+  const waTemplates = [
+    {
+      label: 'General Inquiry',
+      msg: "Hi! I'm interested in learning more about Academic Pilots' study abroad services. Can you guide me through the process?",
+    },
+    {
+      label: 'Free Consultation',
+      msg: "I'd like to book a free consultation to discuss my study abroad options. Can you help me schedule one?",
+    },
+    {
+      label: 'Visa Guidance',
+      msg: "I need guidance on the visa application process for studying abroad. What documents are required and how long does it typically take?",
+    },
+    {
+      label: 'Destinations',
+      msg: "I'm exploring study destinations and would like help comparing options in the UK, USA, Europe, and UAE. Can you share some insights?",
+    },
+  ];
+
+  return (
+    <>
+      {/* Left — Call button with popup */}
+      <div ref={callBtnRef} className={`fixed bottom-8 left-8 z-50 transition-all duration-500 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+        <button
+          onClick={() => { setCallPopupOpen((prev) => !prev); if (waPopupOpen) setWaPopupOpen(false); }}
+          aria-label="Call us"
+          className="group flex h-14 w-14 items-center justify-center rounded-full bg-gold text-navy shadow-xl shadow-gold/30 transition-all duration-300 hover:scale-110 hover:shadow-gold/50"
+        >
+          <Phone className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
+        </button>
+
+        {/* Call Popup */}
+        <div
+          ref={callPopupRef}
+          className={`absolute bottom-20 left-0 w-72 origin-bottom-left transition-all duration-300 ${
+            callPopupOpen
+              ? 'opacity-100 scale-100 pointer-events-auto'
+              : 'opacity-0 scale-90 pointer-events-none'
+          }`}
+        >
+          <div className="relative bg-navy rounded-2xl border border-white/10 shadow-2xl shadow-black/40 overflow-hidden">
+            <div className="absolute top-px left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
+            
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center">
+                  <Phone className="w-5 h-5 text-gold" />
+                </div>
+                <div>
+                  <p className="text-white text-sm font-medium">Call us directly</p>
+                  <p className="text-white/40 text-xs font-mono">Available Mon–Sat, 10AM–7PM</p>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 mb-3">
+                <p className="text-white/30 text-[10px] font-mono uppercase tracking-widest mb-1">Phone</p>
+                <p className="text-white text-lg font-semibold tracking-wide">+91 72920 22912</p>
+              </div>
+
+              <a
+                href="tel:+917292022912"
+                className="flex w-full items-center justify-center gap-3 rounded-full bg-gold px-5 py-3.5 font-bold text-navy text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-gold/20 active:scale-[0.97]"
+              >
+                <Phone className="w-4 h-4" />
+                Call Now
+              </a>
+            </div>
+
+            <div className="absolute -bottom-1.5 left-8 w-3 h-3 rotate-45 bg-navy border-r border-b border-white/10" />
+          </div>
+        </div>
+      </div>
+
+      {/* Right — WhatsApp popup + back to top */}
+      <div ref={waBtnRef} className={`fixed bottom-8 right-8 z-50 flex flex-col gap-3 transition-all duration-500 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+        {/* WhatsApp button + popup (stacked together) */}
+        <div className="relative">
+          <button
+            onClick={() => { setWaPopupOpen((prev) => !prev); if (callPopupOpen) setCallPopupOpen(false); }}
+            aria-label="Chat on WhatsApp"
+            className="group flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-[#25D366]/30 transition-all duration-300 hover:scale-110 hover:shadow-[#25D366]/50"
+          >
+            <WhatsAppIcon />
+          </button>
+
+          {/* WhatsApp Popup */}
+          <div
+            ref={waPopupRef}
+            className={`absolute bottom-20 right-0 w-80 origin-bottom-right transition-all duration-300 ${
+              waPopupOpen
+                ? 'opacity-100 scale-100 pointer-events-auto'
+                : 'opacity-0 scale-90 pointer-events-none'
+            }`}
+          >
+            <div className="relative bg-navy rounded-2xl border border-white/10 shadow-2xl shadow-black/40 overflow-hidden">
+              <div className="absolute top-px left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-[#25D366]/60 to-transparent" />
+              
+              <div className="p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-[#25D366]/15 flex items-center justify-center">
+                    <WhatsAppIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-medium">Chat on WhatsApp</p>
+                    <p className="text-white/40 text-xs font-mono">+91 72920 22912</p>
+                  </div>
+                </div>
+
+                <p className="text-white/50 text-xs mb-3 font-mono uppercase tracking-widest">Quick Messages</p>
+
+                <div className="space-y-2 mb-3">
+                  {waTemplates.map((tpl) => (
+                    <button
+                      key={tpl.label}
+                      type="button"
+                      onClick={() => openWhatsApp(tpl.msg)}
+                      className="group w-full rounded-xl bg-white/5 px-4 py-3 text-left transition-all duration-200 hover:bg-[#25D366]/15 active:scale-[0.98]"
+                    >
+                      <p className="text-white/80 text-xs font-medium group-hover:text-white transition-colors">
+                        {tpl.label}
+                      </p>
+                      <p className="text-white/35 text-[11px] leading-relaxed mt-1 line-clamp-2 group-hover:text-white/50 transition-colors">
+                        {tpl.msg}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openWhatsApp()}
+                  className="flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-5 py-3.5 font-bold text-white text-sm transition-all duration-300 hover:bg-white hover:text-[#25D366] hover:shadow-lg hover:shadow-[#25D366]/20 active:scale-[0.97]"
+                >
+                  <WhatsAppIcon className="h-4 w-4" />
+                  Open WhatsApp
+                </button>
+              </div>
+
+              <div className="absolute -bottom-1.5 right-8 w-3 h-3 rotate-45 bg-navy border-r border-b border-white/10" />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={scrollToTop}
+          aria-label="Back to top"
+          className="group flex h-14 w-14 items-center justify-center rounded-full bg-navy text-gold shadow-xl shadow-navy/30 border border-gold/30 transition-all duration-300 hover:bg-gold hover:text-navy hover:scale-110 hover:shadow-gold/30"
+        >
+          <ArrowUp className="h-6 w-6 transition-transform duration-300 group-hover:-translate-y-1" />
+        </button>
+      </div>
+    </>
+  );
+};
+
 function App() {
   return (
     <div className="relative">
+      <ScrollProgressBar />
       <CustomCursor />
+      <FloatingButtons />
       <Navbar />
       <Hero />
       <Stats />
@@ -788,7 +1767,7 @@ function App() {
       <ServicesGrid />
       <Testimonials />
       <Differentiators />
-      <CTABanner />
+      <ConsultationForm />
       <Footer />
     </div>
   );
