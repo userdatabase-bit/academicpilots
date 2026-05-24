@@ -10,5 +10,8 @@ export default defineConfig(async () => {
     const m = await import('./.vite-source-tags.js');
     plugins.push(m.sourceTags());
   } catch {}
-  return { plugins };
+  return { 
+    plugins,
+    base: '/academicpilots/' // <-- This tells Vite to look for files in your GitHub repository folder
+  };
 })
