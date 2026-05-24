@@ -11,7 +11,6 @@ export default defineConfig(async () => {
     plugins.push(m.sourceTags());
   } catch {}
   return { 
-    plugins,
-    base: '/academicpilots/' // <-- This tells Vite to look for files in your GitHub repository folder
-  };
+    plugins 
+  }; // <-- Cleaned up! No more base path breaking the Vercel build
 })
