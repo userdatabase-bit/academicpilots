@@ -23,6 +23,9 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 
 gsap.registerPlugin(ScrollTrigger);
 
+const logoSrc = `${import.meta.env.BASE_URL}images/logo-removebg-preview (1).png`;
+const imageSrc = (filename: string) => `${import.meta.env.BASE_URL}images/${filename}`;
+
 // --- Components ---
 
 const Navbar = () => {
@@ -42,7 +45,7 @@ const Navbar = () => {
     }`}>
       <div className="container mx-auto px-6 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <img src="/uploads/upload_1.png" alt="Academic Pilots" className="h-14 w-auto brightness-0 invert" />
+          <img src={logoSrc} alt="Academic Pilots" className="h-16 w-auto object-contain" />
         </div>
         
         <div className="hidden md:flex items-center gap-10">
@@ -136,7 +139,7 @@ const Hero = () => {
         playsInline 
         className="absolute inset-0 w-full h-full object-cover"
       >
-        <source src="/videos/temphero.mp4" type="video/mp4" />
+        <source src={`${import.meta.env.BASE_URL}videos/temphero.mp4`} type="video/mp4" />
       </video>
       
       <div className="container mx-auto px-6 relative z-10 text-center md:text-left">
@@ -384,11 +387,11 @@ const ProcessSection = () => {
 
 const DestinationSection = () => {
   const destinations = [
-    { id: 'london', name: 'London', img: '/images/london.jpg', tags: 'UK · 9+ Years · Direct Embassy', coords: { x: 48, y: 32 } },
-    { id: 'nyc', name: 'New York', img: '/images/nyc.jpg', tags: 'USA · Ivy League · Top Tier', coords: { x: 25, y: 38 } },
-    { id: 'dubai', name: 'Dubai', img: '/images/dubai.jpg', tags: 'UAE · Career Hub · No IELTS', coords: { x: 62, y: 48 } },
-    { id: 'barcelona', name: 'Barcelona', img: '/images/barcelona.jpg', tags: 'Spain · Schengen · Tech Focus', coords: { x: 48, y: 40 } },
-    { id: 'nairobi', name: 'Nairobi', img: '/images/nairobi.jpg', tags: 'Kenya · Global Network · Rising', coords: { x: 58, y: 62 } }
+    { id: 'london', name: 'London', img: imageSrc('london.jpg'), tags: 'UK · 9+ Years · Direct Embassy', coords: { x: 48, y: 32 } },
+    { id: 'nyc', name: 'New York', img: imageSrc('nyc.jpg'), tags: 'USA · Ivy League · Top Tier', coords: { x: 25, y: 38 } },
+    { id: 'dubai', name: 'Dubai', img: imageSrc('dubai.jpg'), tags: 'UAE · Career Hub · No IELTS', coords: { x: 62, y: 48 } },
+    { id: 'barcelona', name: 'Barcelona', img: imageSrc('barcelona.jpg'), tags: 'Spain · Schengen · Tech Focus', coords: { x: 48, y: 40 } },
+    { id: 'nairobi', name: 'Nairobi', img: imageSrc('nairobi.jpg'), tags: 'Kenya · Global Network · Rising', coords: { x: 58, y: 62 } }
   ];
 
   const [activeDest, setActiveDest] = useState<string | null>(null);
@@ -500,7 +503,7 @@ const FounderSpotlight = () => {
             <div className="absolute -inset-10 border-2 border-gold/20 rounded-full scale-110 -z-10" />
             <div className="relative rounded-3xl overflow-hidden aspect-square">
               <img 
-                src="/images/founder.jpeg" 
+                src={imageSrc('founder.jpeg')} 
                 alt="Pooja Solanki" 
                 className="w-full h-full object-cover"
               />
@@ -680,7 +683,7 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-16 mb-20">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-3 mb-8">
-              <img src="/uploads/upload_1.png" alt="Academic Pilots" className="h-16 w-auto brightness-0 invert" />
+              <img src={logoSrc} alt="Academic Pilots" className="h-20 w-auto object-contain" />
             </div>
             <p className="text-white/60 leading-relaxed mb-8">
               Tailored Paths to Global Careers. Architecting global futures through precision-driven education consultancy.
