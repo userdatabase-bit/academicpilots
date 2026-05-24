@@ -23,6 +23,13 @@ import { motion } from 'framer-motion';
 
 gsap.registerPlugin(ScrollTrigger);
 
+const getAssetUrl = (path: string) => {
+  const base = import.meta.env.BASE_URL || '/';
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  return `${base}${cleanPath}`;
+};
+
+
 // --- Components ---
 
 const Navbar = () => {
@@ -42,7 +49,7 @@ const Navbar = () => {
     }`}>
       <div className="container mx-auto px-6 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <img src="/uploads/upload_1.png" alt="Academic Pilots" className="h-14 w-auto brightness-0 invert" />
+          <img src={getAssetUrl("/uploads/upload_1.png")} alt="Academic Pilots" className="h-14 w-auto brightness-0 invert" />
         </div>
         
         <div className="hidden md:flex items-center gap-10">
@@ -101,9 +108,10 @@ const Hero = () => {
       interface Particle {
         x: number;
         y: number;
-        speedX: number;
-        speedY: number;
         size: number;
+        speedY: number;
+        speedX: number;
+        opacity: number;
       }
       const particles: Particle[] = [];
       for(let i=0; i<40; i++) {
@@ -112,7 +120,8 @@ const Hero = () => {
           y: Math.random() * canvas.height,
           size: Math.random() * 2,
           speedX: (Math.random() - 0.5) * 0.5,
-          speedY: (Math.random() - 0.5) * 0.5
+          speedY: (Math.random() - 0.5) * 0.5,
+          opacity: Math.random() * 0.5 + 0.1
         });
       }
 
@@ -143,7 +152,7 @@ const Hero = () => {
         playsInline 
         className="absolute inset-0 w-full h-full object-cover"
       >
-        <source src="/videos/temphero.mp4" type="video/mp4" />
+        <source src={getAssetUrl("/videos/temphero.mp4")} type="video/mp4" />
       </video>
       
       <div className="container mx-auto px-6 relative z-10 text-center md:text-left">
@@ -390,54 +399,11 @@ const ProcessSection = () => {
 
 const DestinationSection = () => {
   const destinations = [
-    {
-      id: 'uk',
-      name: 'United Kingdom',
-      img: '/images/london.jpg',
-      tags: 'UK · 2-Year Post Study Work Visa · Russel Group Excellence',
-      highlights: ['World-renowned academic excellence', '2-year post-study work visa', 'Shorter degree duration (1-year Master\'s)', 'Gateway to European travel'],
-      coords: { x: 48, y: 32 }
-    },
-    {
-      id: 'usa',
-      name: 'United States',
-      img: '/images/nyc.jpg',
-      tags: 'USA · STEM OPT · Top Global Ranking',
-      highlights: ['Unmatched research opportunities', 'Up to 3 years STEM OPT work authorization', 'Flexible curriculum and majors', 'Global tech and business hub'],
-      coords: { x: 25, y: 38 }
-    },
-    {
-      id: 'dubai',
-      name: 'Dubai',
-      img: '/images/dubai.jpg',
-      tags: 'UAE · Career Hub · Tax-Free Opportunities',
-      highlights: ['Dynamic growing economy', 'Tax-free income opportunities', 'Global university branch campuses', 'Strategic location bridging East and West'],
-      coords: { x: 62, y: 48 }
-    },
-    {
-      id: 'spain',
-      name: 'Spain',
-      img: '/images/barcelona.jpg',
-      tags: 'Spain · Schengen · Cultural Hub',
-      highlights: ['Affordable tuition and living costs', 'Rich cultural and historical heritage', 'Access to the Schengen Area', 'Growing tech and business sectors'],
-      coords: { x: 48, y: 40 }
-    },
-    {
-      id: 'europe',
-      name: 'Europe',
-      img: 'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?q=80&w=1000&auto=format&fit=crop',
-      tags: 'Europe · Schengen · High Quality of Life',
-      highlights: ['English-taught programs widely available', 'High quality of life and safety', 'Excellent public transportation', 'Diverse cultural experiences'],
-      coords: { x: 52, y: 38 }
-    },
-    {
-      id: 'australia',
-      name: 'Australia',
-      img: 'https://images.unsplash.com/photo-1523482580672-f109ba8cb9be?q=80&w=1000&auto=format&fit=crop',
-      tags: 'Australia · PSW Visa · High Standard of Living',
-      highlights: ['High standard of living', 'Favorable post-study work rights', 'Beautiful natural environment', 'Strong economy with skill shortages'],
-      coords: { x: 85, y: 75 }
-    }
+    { id: 'london', name: 'London', img: getAssetUrl('/images/london.jpg'), tags: 'UK · 9+ Years · Direct Embassy', coords: { x: 48, y: 32 } },
+    { id: 'nyc', name: 'New York', img: getAssetUrl('/images/nyc.jpg'), tags: 'USA · Ivy League · Top Tier', coords: { x: 25, y: 38 } },
+    { id: 'dubai', name: 'Dubai', img: getAssetUrl('/images/dubai.jpg'), tags: 'UAE · Career Hub · No IELTS', coords: { x: 62, y: 48 } },
+    { id: 'barcelona', name: 'Barcelona', img: getAssetUrl('/images/barcelona.jpg'), tags: 'Spain · Schengen · Tech Focus', coords: { x: 48, y: 40 } },
+    { id: 'nairobi', name: 'Nairobi', img: getAssetUrl('/images/nairobi.jpg'), tags: 'Kenya · Global Network · Rising', coords: { x: 58, y: 62 } }
   ];
 
   const [activeDest, setActiveDest] = useState<string | null>(null);
@@ -454,107 +420,48 @@ const DestinationSection = () => {
     setActiveDest(id);
   };
 
-  const activeCountry = destinations.find(d => d.id === activeDest);
-  const mapStyle = activeCountry
-    ? { transform: `scale(2.5)`, transformOrigin: `${activeCountry.coords.x}% ${activeCountry.coords.y}%` }
-    : { transform: `scale(1)`, transformOrigin: `50% 50%` };
-
   return (
     <section id="destinations" className="py-32 bg-white overflow-hidden">
       <div className="container mx-auto px-6">
-        <div className="mb-20">
-          <span className="text-gold font-mono uppercase tracking-widest text-sm mb-4 block">Global Reach</span>
-          <h2 className="text-5xl md:text-6xl text-navy mb-12">Premier Destinations</h2>
+        <div className="flex flex-col lg:flex-row justify-between items-end mb-20 gap-12">
+          <div>
+            <span className="text-gold font-mono uppercase tracking-widest text-sm mb-4 block">Global Reach</span>
+            <h2 className="text-5xl md:text-6xl text-navy">Premier Destinations</h2>
+          </div>
 
-          {/* Interactive Map & Side Panel Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Mini Interactive Map */}
+          <div className="relative w-full max-w-md bg-navy/5 rounded-3xl p-6 border border-navy/10">
+            <div className="text-[10px] font-mono text-navy/40 uppercase tracking-[0.2em] mb-4 flex justify-between items-center">
+              <span>Interactive Flight Grid</span>
+              <Globe2 className="w-3 h-3" />
+            </div>
+            <div className="relative aspect-[2/1] w-full opacity-80">
+              {/* Simplified World Map Silhouette */}
+              <svg viewBox="0 0 100 50" className="w-full h-full fill-navy/10">
+                <path d="M15,15 Q25,10 35,15 T50,25 T70,20 T85,15 T95,25 T80,45 T60,40 T40,45 T20,40 Z" /> {/* Americas/Eurasia/Africa simplified */}
+                <path d="M10,20 Q5,25 10,35 T20,30 Z" className="opacity-50" /> {/* Americas */}
+                <path d="M80,35 Q85,40 90,35 T85,30 Z" className="opacity-50" /> {/* Australia */}
+              </svg>
 
-            {/* Map Area */}
-            <div className="lg:col-span-2 relative bg-navy/5 rounded-3xl p-6 border border-navy/10 overflow-hidden flex items-center justify-center">
-              <div className="absolute top-6 left-6 z-10 text-[10px] font-mono text-navy/40 uppercase tracking-[0.2em] flex items-center gap-2 bg-white/80 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                <span>Interactive Global Grid</span>
-                <Globe2 className="w-3 h-3" />
-              </div>
-
-              {activeDest && (
+              {/* Destination Markers */}
+              {destinations.map((dest) => (
                 <button
-                  onClick={() => setActiveDest(null)}
-                  className="absolute top-6 right-6 z-10 text-[10px] font-mono text-navy bg-gold/20 hover:bg-gold/30 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+                  key={dest.id}
+                  onClick={() => scrollToDest(dest.id)}
+                  onMouseEnter={() => setActiveDest(dest.id)}
+                  onMouseLeave={() => setActiveDest(null)}
+                  className="absolute group z-20"
+                  style={{ left: `${dest.coords.x}%`, top: `${dest.coords.y}%` }}
                 >
-                  Reset Map
+                  <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    activeDest === dest.id ? 'bg-gold scale-150 shadow-[0_0_15px_rgba(200,148,56,0.8)]' : 'bg-navy/30'
+                  }`} />
+                  <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-navy text-white text-[8px] font-mono rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 ${activeDest === dest.id ? 'opacity-100' : ''}`}>
+                    {dest.name}
+                  </div>
                 </button>
-              )}
-
-              <div
-                className="relative w-full aspect-[5/4] transition-transform duration-1000 ease-in-out"
-                style={mapStyle}
-              >
-                <svg viewBox="0 0 100 80" className="w-full h-full fill-navy/10" preserveAspectRatio="none">
-                  {/* Simplified World Map Paths */}
-                  <path d="M15,25 Q25,15 35,25 T50,40 T70,30 T85,25 T95,40 T80,70 T60,60 T40,70 T20,60 Z" />
-                  <path d="M10,35 Q5,45 10,60 T20,50 Z" className="opacity-50" />
-                  <path d="M75,65 Q85,75 90,65 T85,55 Z" className="opacity-50" />
-                </svg>
-
-                {/* Destination Markers */}
-                {destinations.map((dest) => (
-                  <button
-                    key={dest.id}
-                    onClick={() => setActiveDest(dest.id)}
-                    className="absolute group z-20 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer focus:outline-none"
-                    style={{ left: `${dest.coords.x}%`, top: `${dest.coords.y}%` }}
-                    aria-label={`Select ${dest.name}`}
-                  >
-                    <div className={`w-3 h-3 md:w-4 md:h-4 rounded-full transition-all duration-300 ${
-                      activeDest === dest.id ? 'bg-gold scale-150 shadow-[0_0_15px_rgba(200,148,56,0.8)]' : 'bg-navy hover:bg-gold hover:scale-125 focus-visible:ring-2 focus-visible:ring-gold'
-                    }`} />
-                    <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-navy text-white text-[8px] md:text-[10px] font-mono rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 ${activeDest === dest.id ? 'opacity-100' : ''}`}>
-                      {dest.name}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              ))}
             </div>
-
-            {/* Side Panel Area */}
-            <div className="bg-navy rounded-3xl p-8 text-white relative overflow-hidden flex flex-col justify-center min-h-[400px]">
-              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-gold/10 rounded-full blur-3xl" />
-
-              {activeCountry ? (
-                <div className="relative z-10 animate-fade-in transition-all duration-500">
-                  <div className="flex items-center gap-2 mb-2 text-gold font-mono text-sm">
-                    <MapPin className="w-4 h-4" />
-                    <span>Selected Region</span>
-                  </div>
-                  <h3 className="text-4xl font-hero italic mb-6">{activeCountry.name}</h3>
-
-                  <div className="space-y-4 mb-8">
-                    {activeCountry.highlights.map((highlight, idx) => (
-                      <div key={idx} className="flex items-start gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-gold shrink-0 mt-0.5" />
-                        <span className="text-white/80 font-body leading-relaxed text-sm">{highlight}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={() => scrollToDest(activeCountry.id)}
-                    className="w-full py-3 px-6 bg-gold text-navy rounded-full font-semibold hover:bg-white transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-                  >
-                    View Programs
-                  </button>
-                </div>
-              ) : (
-                <div className="relative z-10 text-center opacity-60">
-                  <Globe2 className="w-12 h-12 mx-auto mb-4 text-gold opacity-50" />
-                  <h3 className="text-2xl font-hero italic mb-2">Select a Destination</h3>
-                  <p className="text-sm font-body text-white/70">
-                    Click on a marker on the map to explore educational opportunities and highlights for that region.
-                  </p>
-                </div>
-              )}
-            </div>
-
           </div>
         </div>
         
@@ -608,7 +515,7 @@ const FounderSpotlight = () => {
             <div className="absolute -inset-10 border-2 border-gold/20 rounded-full scale-110 -z-10" />
             <div className="relative rounded-3xl overflow-hidden aspect-square">
               <img 
-                src="/images/founder.jpeg" 
+                src={getAssetUrl("/images/founder.jpeg")}
                 alt="Pooja Solanki" 
                 className="w-full h-full object-cover"
               />
@@ -788,7 +695,7 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-16 mb-20">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-3 mb-8">
-              <img src="/uploads/upload_1.png" alt="Academic Pilots" className="h-16 w-auto brightness-0 invert" />
+              <img src={getAssetUrl("/uploads/upload_1.png")} alt="Academic Pilots" className="h-16 w-auto brightness-0 invert" />
             </div>
             <p className="text-white/60 leading-relaxed mb-8">
               Tailored Paths to Global Careers. Architecting global futures through precision-driven education consultancy.
