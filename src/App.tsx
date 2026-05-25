@@ -480,7 +480,7 @@ const ProcessSection = () => {
                   </div>
                   
                   <div className="mb-6 md:mb-10 transform group-hover:scale-110 transition-transform duration-500 origin-left">
-                    {React.cloneElement(step.icon as React.ReactElement, { className: 'w-8 h-8 md:w-12 md:h-12 text-gold' })}
+                    {React.cloneElement(step.icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8 md:w-12 md:h-12 text-gold' })}
                   </div>
                   
                   <h3 className="text-white text-2xl md:text-4xl mb-2 font-heading">{step.title}</h3>
@@ -776,7 +776,7 @@ const MobileDestinationCarousel = ({
     if (!emblaApi) return;
     const onSelectHandler = () => setSelectedIndex(emblaApi.selectedScrollSnap());
     emblaApi.on('select', onSelectHandler);
-    return () => emblaApi.off('select', onSelectHandler);
+    return () => { emblaApi.off('select', onSelectHandler); };
   }, [emblaApi]);
 
   return (
