@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .vite-source-tags.js
 .vercel
+
+# Debug scripts
+scripts/serve-test.js

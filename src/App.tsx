@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
+import NotFound from './pages/NotFound';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as L from 'leaflet';
@@ -1570,9 +1572,8 @@ _Submitted via Academic Pilots Website_`;
                   className="inline-flex items-center gap-3 text-gold hover:text-white transition-colors group font-medium"
                 >
                   <span className="w-8 h-8 rounded-full border border-gold/30 flex items-center justify-center group-hover:bg-gold group-hover:text-navy transition-all">
-                    <svg viewBox="0 0 32 32" className="w-4 h-4" fill="currentColor">
-                      <path d="M16 0C7.164 0 0 7.164 0 16c0 3.042.85 5.882 2.324 8.286L.762 29.432a.8.8 0 0 0 .986.986l5.16-1.558A15.893 15.893 0 0 0 16 32c8.836 0 16-7.164 16-16S24.836 0 16 0zm0 29.333a13.317 13.317 0 0 1-6.832-1.938.8.8 0 0 0-.664-.074l-4.106 1.24 1.244-4.06a.8.8 0 0 0-.072-.662A13.267 13.267 0 0 1 2.667 16C2.667 8.648 8.648 2.667 16 2.667S29.333 8.648 29.333 16 23.352 29.333 16 29.333z" />
-                      <path d="M22.5 18.6c-.6-.3-3.6-1.8-4.2-2-.6-.2-.9-.3-1.3.3s-1.5 2-1.8 2.4c-.3.3-.6.4-1.2.1-.6-.3-2.344-1.172-3.5-2.5-1.172-1.328-1.5-1.8-1.7-2.3-.2-.5-.024-.7.15-.9.15-.15.3-.3.5-.5.2-.2.3-.3.4-.5.1-.2.05-.4-.024-.5-.074-.1-.667-1.6-.914-2.2-.24-.6-.48-.5-.66-.5h-.6c-.2 0-.5.07-.8.38-.3.3-1.2 1.2-1.2 2.9s1.2 3.5 1.4 3.7c.2.2 2.378 3.7 5.778 5.2 2.9 1.3 3.5 1.2 4.1 1.1.7-.1 2.2-.9 2.5-1.8.3-.9.3-1.6.2-1.8-.1-.1-.3-.2-.9-.5z" />
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741 1.205 1.2-3.645-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.887 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 21.75l3.99-1.296a11.838 11.838 0 005.674 1.447h.005c6.554 0 11.89-5.335 11.893-11.892a11.821 11.821 0 00-3.48-8.413z" />
                     </svg>
                   </span>
                   +91 72920 22912
@@ -1815,13 +1816,12 @@ const FloatingButtons = () => {
 
   const WhatsAppIcon = ({ className }: { className?: string }) => (
     <svg
-      viewBox="0 0 32 32"
-      className={`h-7 w-7 transition-transform duration-300 group-hover:scale-110 ${className ?? ''}`}
+      viewBox="0 0 24 24"
+      className={`pointer-events-none h-7 w-7 transition-transform duration-300 group-hover:scale-110 ${className ?? ''}`}
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M16 0C7.164 0 0 7.164 0 16c0 3.042.85 5.882 2.324 8.286L.762 29.432a.8.8 0 0 0 .986.986l5.16-1.558A15.893 15.893 0 0 0 16 32c8.836 0 16-7.164 16-16S24.836 0 16 0zm0 29.333a13.317 13.317 0 0 1-6.832-1.938.8.8 0 0 0-.664-.074l-4.106 1.24 1.244-4.06a.8.8 0 0 0-.072-.662A13.267 13.267 0 0 1 2.667 16C2.667 8.648 8.648 2.667 16 2.667S29.333 8.648 29.333 16 23.352 29.333 16 29.333z" />
-      <path d="M22.5 18.6c-.6-.3-3.6-1.8-4.2-2-.6-.2-.9-.3-1.3.3s-1.5 2-1.8 2.4c-.3.3-.6.4-1.2.1-.6-.3-2.344-1.172-3.5-2.5-1.172-1.328-1.5-1.8-1.7-2.3-.2-.5-.024-.7.15-.9.15-.15.3-.3.5-.5.2-.2.3-.3.4-.5.1-.2.05-.4-.024-.5-.074-.1-.667-1.6-.914-2.2-.24-.6-.48-.5-.66-.5h-.6c-.2 0-.5.07-.8.38-.3.3-1.2 1.2-1.2 2.9s1.2 3.5 1.4 3.7c.2.2 2.378 3.7 5.778 5.2 2.9 1.3 3.5 1.2 4.1 1.1.7-.1 2.2-.9 2.5-1.8.3-.9.3-1.6.2-1.8-.1-.1-.3-.2-.9-.5z" />
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741 1.205 1.2-3.645-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.887 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 21.75l3.99-1.296a11.838 11.838 0 005.674 1.447h.005c6.554 0 11.89-5.335 11.893-11.892a11.821 11.821 0 00-3.48-8.413z" />
     </svg>
   );
 
@@ -1852,7 +1852,7 @@ const FloatingButtons = () => {
           aria-label="Call us"
           className="group flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-gold text-navy shadow-xl shadow-gold/30 transition-all duration-300 hover:scale-110 hover:shadow-gold/50"
         >
-          <Phone className="h-5 w-5 md:h-6 md:w-6 transition-transform duration-300 group-hover:scale-110" />
+          <Phone className="pointer-events-none h-5 w-5 md:h-6 md:w-6 transition-transform duration-300 group-hover:scale-110" />
         </button>
 
         {/* Call Popup */}
@@ -1898,13 +1898,13 @@ const FloatingButtons = () => {
       </div>
 
       {/* Right — WhatsApp popup + back to top */}
-      <div className={`fixed bottom-4 md:bottom-8 right-4 md:right-8 z-50 flex flex-col gap-3 transition-all duration-500 ${showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-        {/* WhatsApp button + popup — hides when reaching consultation */}
-        <div className={`relative overflow-hidden transition-all duration-500 ${showActions ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+      <div ref={waBtnRef} className={`fixed bottom-4 md:bottom-8 right-4 md:right-8 z-50 flex flex-col gap-3 transition-all duration-500 ${showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+        <div className="relative">
+          {/* WhatsApp button and popup — same structure as call button */}
           <button
             onClick={() => { setWaPopupOpen((prev) => !prev); if (callPopupOpen) setCallPopupOpen(false); }}
             aria-label="Chat on WhatsApp"
-            className="group flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-[#25D366]/30 transition-all duration-300 hover:scale-110 hover:shadow-[#25D366]/50"
+            className={`group flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-[#25D366]/30 transition-all duration-300 hover:scale-110 hover:shadow-[#25D366]/50 ${showActions ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           >
             <WhatsAppIcon />
           </button>
@@ -1987,22 +1987,27 @@ const FloatingButtons = () => {
 
 function App() {
   return (
-    <div className="relative">
-      <ScrollProgressBar />
-      <CustomCursor />
-      <FloatingButtons />
-      <Navbar />
-      <Hero />
-      <Stats />
-      <ProcessSection />
-      <DestinationSection />
-      <FounderSpotlight />
-      <ServicesGrid />
-      <Testimonials />
-      <Differentiators />
-      <ConsultationForm />
-      <Footer />
-    </div>
+    <Routes>
+      <Route path="/" element={
+        <div className="relative">
+          <ScrollProgressBar />
+          <CustomCursor />
+          <FloatingButtons />
+          <Navbar />
+          <Hero />
+          <Stats />
+          <ProcessSection />
+          <DestinationSection />
+          <FounderSpotlight />
+          <ServicesGrid />
+          <Testimonials />
+          <Differentiators />
+          <ConsultationForm />
+          <Footer />
+        </div>
+      } />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 
