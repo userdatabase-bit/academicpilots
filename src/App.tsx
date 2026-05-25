@@ -27,16 +27,60 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import useEmblaCarousel from 'embla-carousel-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const logoSrc = `${import.meta.env.BASE_URL}images/logo-removebg-preview (1).png`;
+const logoSrc = `${import.meta.env.BASE_URL}images/logo-transparent.png`;
 const imageSrc = (filename: string) => `${import.meta.env.BASE_URL}images/${filename}`;
 
 // --- Components ---
 
+const scrollToSection = (id: string) => {
+  const element = document.getElementById(id);
+  if (!element) return;
+  
+  let targetPosition;
+  
+  if (id === 'process') {
+    // Get all sections before Process
+    const hero = document.querySelector('section.h-dvh, section.h-screen');
+    const stats = hero?.nextElementSibling;
+    
+    if (stats) {
+      targetPosition = (stats as HTMLElement).offsetTop + (stats as HTMLElement).offsetHeight;
+    } else {
+      targetPosition = element.offsetTop;
+    }
+    
+    // Reset horizontal scroll
+    const scrollContainer = element.querySelector('[class*="flex h-full items-center"]');
+    if (scrollContainer) {
+      gsap.set(scrollContainer, { x: 0 });
+    }
+  } else {
+    targetPosition = element.offsetTop;
+  }
+  
+  const navbarHeight = 100;
+  const offsetPosition = targetPosition - navbarHeight;
+  
+  window.scrollTo({
+    top: offsetPosition,
+    behavior: 'smooth'
+  });
+};
+
+const navItems = [
+  { label: 'Destinations', id: 'destinations' },
+  { label: 'Process', id: 'process' },
+  { label: 'Services', id: 'services' },
+  { label: 'Founder', id: 'founder' },
+];
+
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -46,28 +90,99 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close mobile menu on route/scroll
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handle = () => setMobileOpen(false);
+    window.addEventListener('scroll', handle, { once: true });
+    return () => window.removeEventListener('scroll', handle);
+  }, [mobileOpen]);
+
+  const handleNavClick = (id: string) => {
+    setMobileOpen(false);
+    scrollToSection(id);
+  };
+
   return (
     <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
-      isScrolled ? 'bg-navy/95 backdrop-blur-xl py-4 shadow-xl' : 'bg-transparent py-6'
+      isScrolled || mobileOpen ? 'bg-navy/95 backdrop-blur-xl py-4 shadow-xl' : 'bg-transparent py-6'
     }`}>
-      <div className="container mx-auto px-6 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <img src={logoSrc} alt="Academic Pilots" className="h-16 w-auto object-contain" />
+      <div className="container mx-auto px-4 md:px-6 flex justify-between items-center">
+        <div className="flex items-center gap-3 logo-glow">
+          <button 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="cursor-pointer"
+            aria-label="Scroll to top"
+          >
+            <img src={logoSrc} alt="Academic Pilots" className="h-12 md:h-16 w-auto object-contain drop-shadow-logo" />
+          </button>
         </div>
         
+        {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-10">
-          {['Destinations', 'Process', 'Founder', 'Services'].map((item) => (
+          {navItems.map((item) => (
             <a 
-              key={item} 
-              href={`#${item.toLowerCase()}`} 
-              className="text-white/80 hover:text-gold transition-colors text-sm font-medium tracking-wide"
+              key={item.label} 
+              href={`#${item.id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick(item.id);
+              }}
+              className="text-white/80 hover:text-gold transition-colors text-sm font-medium tracking-wide touch-target inline-flex items-center"
             >
-              {item}
+              {item.label}
             </a>
           ))}
-          <button className="bg-gold hover:bg-gold/90 text-navy px-6 py-2.5 rounded-full font-semibold text-sm transition-all transform hover:scale-105">
+          <button 
+            onClick={() => scrollToSection('consultation')}
+            className="bg-gold hover:bg-gold/90 text-navy px-6 py-2.5 rounded-full font-semibold text-sm transition-all transform hover:scale-105 touch-target"
+          >
             Book Consultation
           </button>
+        </div>
+
+        {/* Hamburger Button */}
+        <button
+          onClick={() => setMobileOpen((prev) => !prev)}
+          className="md:hidden relative w-8 h-8 flex flex-col items-center justify-center gap-1.5 z-50"
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+        >
+          <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${mobileOpen ? 'rotate-45 translate-y-[3.5px]' : ''}`} />
+          <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${mobileOpen ? 'opacity-0' : ''}`} />
+          <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${mobileOpen ? '-rotate-45 -translate-y-[3.5px]' : ''}`} />
+        </button>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      <div
+        className={`md:hidden fixed inset-x-0 top-0 transition-all duration-400 overflow-hidden ${
+          mobileOpen ? 'max-h-[100vh] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+        }`}
+        style={{ transitionDuration: '400ms' }}
+      >
+        <div className="bg-navy/98 backdrop-blur-2xl border-t border-white/5 pt-24 pb-10">
+          <div className="container mx-auto px-4 flex flex-col items-center gap-6">
+            {navItems.map((item) => (
+              <a
+                key={item.label}
+                href={`#${item.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavClick(item.id);
+                }}
+                className="text-white/70 hover:text-gold text-lg font-medium tracking-wide transition-colors touch-target inline-flex items-center"
+              >
+                {item.label}
+              </a>
+            ))}
+            <div className="w-16 h-[1px] bg-gold/30 my-2" />
+            <button
+              onClick={() => handleNavClick('consultation')}
+              className="bg-gold hover:bg-gold/90 text-navy px-10 py-3.5 rounded-full font-bold text-base transition-all transform hover:scale-105 w-full max-w-xs touch-target"
+            >
+              Book Consultation
+            </button>
+          </div>
         </div>
       </div>
     </nav>
@@ -138,7 +253,7 @@ const Hero = () => {
   }, []);
 
   return (
-    <section ref={containerRef} className="relative h-screen flex items-center overflow-hidden">
+    <section ref={containerRef} className="relative h-dvh md:h-screen flex items-center overflow-hidden">
       <video 
         autoPlay 
         muted 
@@ -147,39 +262,37 @@ const Hero = () => {
         className="absolute inset-0 w-full h-full object-cover"
       >
         <source src={`${import.meta.env.BASE_URL}videos/temphero.mp4`} type="video/mp4" />
-      </video>
-      
-      <div className="container mx-auto px-6 relative z-10 text-center md:text-left">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gold/30 bg-gold/10 backdrop-blur-sm mb-8 animate-fade-in">
+      </video>        <div className="container mx-auto px-6 relative z-10 text-center md:text-left">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gold/30 bg-gold/10 backdrop-blur-sm mb-6 md:mb-8 animate-fade-in">
           <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-          <span className="text-gold text-xs font-mono tracking-widest uppercase">✈ Tailored Paths to Global Careers</span>
+          <span className="text-gold text-[10px] md:text-xs font-mono tracking-widest uppercase">✈ Tailored Paths to Global Careers</span>
         </div>
         
         <h1 
           ref={h1Ref}
-          className="text-white font-hero text-5xl md:text-8xl leading-tight mb-8 max-w-5xl"
+          className="text-white font-hero text-4xl sm:text-5xl md:text-8xl leading-tight mb-6 md:mb-8 max-w-5xl"
         >
           Your Flight Path to a Global Career Starts Here.
-        </h1>
-        
-        <p className="text-white/70 text-lg md:text-xl max-w-2xl mb-12 font-body font-light leading-relaxed">
+        </h1>          <p className="text-white/70 text-base md:text-xl max-w-2xl mb-10 md:mb-12 font-body font-light leading-relaxed">
           Expert career-first guidance to top universities — UK, USA, Europe, UAE. We don't just process applications, we architect futures.
         </p>
         
-        <div className="flex flex-col md:flex-row gap-6">
-          <button className="bg-gold text-navy px-10 py-4 rounded-full font-bold text-lg hover:bg-white transition-all transform hover:-translate-y-1 shadow-lg shadow-gold/20">
-            Book Free Consultation
-          </button>
-          <button className="border border-gold text-gold px-10 py-4 rounded-full font-bold text-lg hover:bg-gold/10 transition-all flex items-center justify-center gap-3">
-            <span className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center">
-              <div className="w-0 h-0 border-t-4 border-t-transparent border-l-6 border-l-gold border-b-4 border-b-transparent ml-1" />
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
+          <button 
+            onClick={() => scrollToSection('consultation')}
+            className="group relative overflow-hidden bg-gold text-navy w-full sm:w-auto px-8 md:px-10 py-4 rounded-full font-bold text-base md:text-lg transition-all duration-500 transform hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl hover:shadow-gold/40 shadow-lg shadow-gold/20 active:scale-[0.97] touch-target"
+          >
+            <span className="relative z-10 inline-flex items-center gap-3">
+              Book Free Consultation
+              <ArrowRight className="w-5 h-5 transition-all duration-300 group-hover:translate-x-1.5" />
             </span>
-            Watch Story
+            <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/25 to-white/0 opacity-0 group-hover:opacity-100 transition-all duration-700 -translate-x-full group-hover:translate-x-full" />
           </button>
+
         </div>
       </div>
 
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+      <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
         <div className="w-[1px] h-20 bg-gradient-to-b from-transparent via-gold to-transparent relative">
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-3 border-r-2 border-b-2 border-gold rotate-45 animate-bounce" />
         </div>
@@ -196,12 +309,12 @@ const Stats = () => {
   ];
 
   return (
-    <section className="bg-navy py-24 relative overflow-hidden">
+    <section className="bg-navy py-16 md:py-24 relative overflow-hidden">
       <div className="container mx-auto px-6">
-        <div className="grid md:grid-cols-3 gap-16 text-center mb-16">
+        <div className="grid md:grid-cols-3 gap-10 md:gap-16 text-center mb-10 md:mb-16">
           {stats.map((stat, i) => (
             <div key={i} className="flex flex-col items-center">
-              <div className="text-gold font-mono text-7xl md:text-8xl font-bold mb-4">
+              <div className="text-gold font-mono text-5xl md:text-8xl font-bold mb-2 md:mb-4">
                 <Counter value={stat.value} />{stat.suffix}
               </div>
               <div className="text-white/60 text-lg uppercase tracking-widest font-body">{stat.label}</div>
@@ -336,14 +449,15 @@ const ProcessSection = () => {
   }, []);
 
   return (
-    <section id="process" ref={sectionRef} className="relative h-screen bg-navy">
+    <section id="process" ref={sectionRef} className="relative min-h-screen md:h-screen bg-navy scroll-mt-28">
       <div className="absolute top-8 md:top-10 left-6 md:left-10 z-20 pointer-events-none">
         <span className="text-gold font-mono uppercase tracking-[0.3em] text-xs mb-2 block">The Journey</span>
         <h2 className="text-4xl md:text-5xl text-white font-heading">Our Flight Path</h2>
       </div>
 
+      {/* GSAP horizontal scroll */}
       <div className="absolute inset-0 overflow-hidden">
-      <div ref={scrollContainerRef} className="flex h-full items-center pl-[10vw] pr-[6vw] gap-[12vw] pt-36 md:pt-40 relative">
+      <div ref={scrollContainerRef} className="flex h-full items-center pl-[10vw] pr-[6vw] gap-[6vw] md:gap-[12vw] pt-20 md:pt-40 relative">
         {/* Background Flight Path SVG */}
         <div className="absolute top-1/2 left-0 w-full -translate-y-1/2 pointer-events-none opacity-20 z-0">
           <svg viewBox="0 0 4000 400" className="w-full h-[400px]">
@@ -358,46 +472,48 @@ const ProcessSection = () => {
             />
           </svg>
         </div>
-
-        {steps.map((step, i) => (
-          <div key={i} className="flex-shrink-0 w-[400px] md:w-[500px] relative z-10 group">
-            <div className="relative glass p-12 rounded-[40px] border border-white/10 hover:border-gold/30 transition-all duration-500 hover:-translate-y-4">
-              <div className="absolute -top-10 -left-10 text-[120px] font-mono text-white/5 font-bold leading-none select-none group-hover:text-gold/10 transition-colors">
-                {step.num}
+          {steps.map((step, i) => (
+              <div key={i} className="flex-shrink-0 w-[80vw] md:w-[400px] lg:w-[500px] relative z-10 group">
+                <div className="relative bg-white/12 backdrop-blur-none md:bg-white/10 md:backdrop-blur-md p-6 md:p-12 rounded-[24px] md:rounded-[40px] border border-white/10 md:border-white/20 hover:border-gold/30 transition-all duration-500 hover:-translate-y-4">
+                  <div className="absolute -top-5 md:-top-10 -left-4 md:-left-10 text-[60px] md:text-[120px] font-mono text-white/5 font-bold leading-none select-none group-hover:text-gold/10 transition-colors">
+                    {step.num}
+                  </div>
+                  
+                  <div className="mb-6 md:mb-10 transform group-hover:scale-110 transition-transform duration-500 origin-left">
+                    {React.cloneElement(step.icon as React.ReactElement, { className: 'w-8 h-8 md:w-12 md:h-12 text-gold' })}
+                  </div>
+                  
+                  <h3 className="text-white text-2xl md:text-4xl mb-2 font-heading">{step.title}</h3>
+                  <div className="text-gold font-mono text-xs md:text-sm uppercase tracking-widest mb-4 md:mb-6">{step.sub}</div>
+                  
+                  <p className="text-white/60 text-sm md:text-lg leading-relaxed">
+                    {step.body}
+                  </p>
+                  
+                  <div className="mt-6 md:mt-10 flex items-center gap-4 text-gold/40 font-mono text-xs uppercase tracking-tighter group-hover:text-gold transition-colors">
+                    <span>Phase {step.num}</span>
+                    <div className="flex-1 h-[1px] bg-gold/10 group-hover:bg-gold/30" />
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                </div>
               </div>
-              
-              <div className="mb-10 transform group-hover:scale-110 transition-transform duration-500 origin-left">
-                {step.icon}
-              </div>
-              
-              <h3 className="text-white text-4xl mb-2 font-heading">{step.title}</h3>
-              <div className="text-gold font-mono text-sm uppercase tracking-widest mb-6">{step.sub}</div>
-              
-              <p className="text-white/60 text-lg leading-relaxed">
-                {step.body}
-              </p>
-              
-              <div className="mt-10 flex items-center gap-4 text-gold/40 font-mono text-xs uppercase tracking-tighter group-hover:text-gold transition-colors">
-                <span>Phase {step.num}</span>
-                <div className="flex-1 h-[1px] bg-gold/10 group-hover:bg-gold/30" />
-                <ArrowRight className="w-4 h-4" />
+            ))}
+            
+            {/* Final Destination Card */}
+            <div className="flex-shrink-0 w-[80vw] md:w-[500px] lg:w-[600px] relative z-10">
+              <div className="bg-gold p-8 md:p-16 rounded-[24px] md:rounded-[40px] text-navy">
+                <h3 className="text-3xl md:text-5xl font-heading mb-4 md:mb-6">Ready for Takeoff?</h3>
+                <p className="text-navy/80 text-base md:text-xl mb-8 md:mb-10 leading-relaxed font-medium">
+                  Your global career is just one consultation away. Let's map your future together.
+                </p>
+                <button 
+                  onClick={() => scrollToSection('consultation')}
+                  className="bg-navy text-white px-8 md:px-10 py-3.5 md:py-4 rounded-full font-bold text-base md:text-lg hover:bg-navy/90 transition-all transform hover:scale-105 w-full md:w-auto"
+                >
+                  Start Your Journey
+                </button>
               </div>
             </div>
-          </div>
-        ))}
-        
-        {/* Final Destination Card */}
-        <div className="flex-shrink-0 w-[400px] md:w-[600px] relative z-10">
-          <div className="bg-gold p-16 rounded-[40px] text-navy">
-            <h3 className="text-5xl font-heading mb-6">Ready for Takeoff?</h3>
-            <p className="text-navy/80 text-xl mb-10 leading-relaxed font-medium">
-              Your global career is just one consultation away. Let's map your future together.
-            </p>
-            <button className="bg-navy text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-navy/90 transition-all transform hover:scale-105">
-              Start Your Journey
-            </button>
-          </div>
-        </div>
       </div>
       </div>
     </section>
@@ -546,10 +662,10 @@ const DestinationLeafletMap = ({
       zoomControl: false,
       scrollWheelZoom: false,
       attributionControl: false,
-      minZoom: 2,
+      minZoom: 1,
       maxZoom: 6,
       worldCopyJump: true
-    }).setView([20, 15], 2);
+    });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 6,
@@ -558,6 +674,9 @@ const DestinationLeafletMap = ({
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     map.on('click', onReset);
+
+    const allBounds = L.latLngBounds(destinations.map(d => d.center));
+    map.fitBounds(allBounds, { padding: [30, 30], maxZoom: 3 });
 
     destinations.forEach((dest) => {
       const marker = L.marker(dest.center, {
@@ -588,10 +707,8 @@ const DestinationLeafletMap = ({
 
     const activeDest = destinations.find((dest) => dest.id === activeId);
     if (!activeDest) {
-      map.flyTo([20, 15], 2, {
-        animate: true,
-        duration: 1
-      });
+      const allBounds = L.latLngBounds(destinations.map(d => d.center));
+      map.fitBounds(allBounds, { padding: [30, 30], maxZoom: 3, animate: true, duration: 1 });
     } else {
       map.flyTo(activeDest.center, activeDest.zoom, {
         animate: true,
@@ -634,6 +751,91 @@ const DestinationLeafletMap = ({
   }, [onReset]);
 
   return <div ref={mapElementRef} className="absolute inset-0 z-0" />;
+};
+
+// --- Mobile Swipeable Destination Carousel ---
+
+const MobileDestinationCarousel = ({
+  destinations,
+  activeId,
+  onSelect,
+}: {
+  destinations: Destination[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+}) => {
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    align: 'center',
+    loop: false,
+    skipSnaps: false,
+    dragFree: false
+  });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelectHandler = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelectHandler);
+    return () => emblaApi.off('select', onSelectHandler);
+  }, [emblaApi]);
+
+  return (
+    <div className="md:hidden -mx-6">
+      {/* Carousel Viewport */}
+      <div className="overflow-hidden" ref={emblaRef}>
+        <div className="flex">
+          {destinations.map((dest, i) => (
+            <div key={dest.id} className="flex-[0_0_80%] min-w-0 pl-6">
+              <button
+                type="button"
+                onClick={() => onSelect(dest.id)}
+                className={`relative w-full h-[400px] rounded-[28px] overflow-hidden group text-left border-2 transition-colors duration-500 ${
+                  activeId === dest.id ? 'border-gold' : 'border-navy/10'
+                }`}
+              >
+                <img
+                  src={dest.image}
+                  alt={dest.name}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/25 to-transparent opacity-90" />
+                <div className={`absolute inset-0 transition-opacity duration-500 ${activeId === dest.id ? 'bg-gold/20 opacity-100' : 'opacity-0 group-hover:opacity-100 bg-gold/10'}`} />
+
+                <div className="absolute bottom-6 left-6 right-6">
+                  <div className="text-gold font-mono text-xs uppercase tracking-[0.22em] mb-2">{dest.shortName}</div>
+                  <h3 className="text-white font-hero italic text-3xl mb-3">{dest.name}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {dest.tags.slice(0, 2).map((tag) => (
+                      <span key={tag} className="text-[10px] uppercase tracking-widest text-white/70 border border-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pagination Dots */}
+      <div className="flex items-center justify-center gap-2.5 mt-6 px-6">
+        {destinations.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => emblaApi?.scrollTo(i)}
+            className={`transition-all duration-300 rounded-full ${
+              i === selectedIndex
+                ? 'bg-gold w-7 h-2.5'
+                : 'bg-navy/20 w-2.5 h-2.5 hover:bg-navy/40'
+            }`}
+            aria-label={`Go to ${destinations[i].name}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 };
 
 const DestinationSection = () => {
@@ -740,6 +942,9 @@ const DestinationSection = () => {
   };
 
   useEffect(() => {
+    // Skip GSAP ScrollTrigger on mobile — use Embla carousel instead
+    if (window.innerWidth < 768) return;
+
     const section = cardsSectionRef.current;
     const viewport = cardsViewportRef.current;
     const rail = railRef.current;
@@ -781,7 +986,7 @@ const DestinationSection = () => {
   }, []);
 
   return (
-    <section id="destinations" className="py-24 bg-white overflow-hidden">
+    <section id="destinations" className="py-24 bg-white overflow-hidden scroll-mt-28">
       <div className="container mx-auto px-6">
         <div className="mb-16 max-w-3xl">
           <span className="text-gold font-mono uppercase tracking-widest text-sm mb-4 block">Global Reach</span>
@@ -792,7 +997,7 @@ const DestinationSection = () => {
         </div>
 
         <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-stretch mb-14">
-          <div className="relative min-h-[560px] bg-navy overflow-hidden rounded-[32px] border border-navy/10">
+          <div className="relative min-h-[400px] md:min-h-[560px] bg-navy overflow-hidden rounded-[32px] border border-navy/10">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(212,160,23,0.25),transparent_32%),radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.12),transparent_28%)]" />
             <div className="absolute top-8 left-8 right-8 z-10 flex items-center justify-between gap-6">
               <div>
@@ -864,7 +1069,7 @@ const DestinationSection = () => {
           </motion.div>
         </div>
         
-        <section ref={cardsSectionRef} className="min-h-screen overflow-hidden pt-10 pb-10 flex flex-col justify-center">
+        <section id="destination-cards" ref={cardsSectionRef} className="min-h-screen overflow-hidden pt-10 pb-10 flex flex-col justify-center">
           <div className="mb-8 flex items-end justify-between gap-8">
             <div>
               <span className="text-gold font-mono uppercase tracking-widest text-sm mb-3 block">Destination Cards</span>
@@ -874,7 +1079,12 @@ const DestinationSection = () => {
               Scroll down here to move sideways through every country we support.
             </p>
           </div>
-          <div ref={cardsViewportRef} className="overflow-hidden">
+          
+          {/* Mobile: Swipeable carousel */}
+          <MobileDestinationCarousel destinations={destinations} activeId={activeId} onSelect={selectDest} />
+
+          {/* Desktop: GSAP horizontal scroll */}
+          <div ref={cardsViewportRef} className="overflow-hidden hidden md:block">
           <div 
             ref={railRef}
             className="flex w-max gap-6 will-change-transform"
@@ -923,7 +1133,7 @@ const DestinationSection = () => {
 
 const FounderSpotlight = () => {
   return (
-    <section id="founder" className="py-32 bg-white overflow-hidden">
+    <section id="founder" className="py-16 md:py-32 bg-white overflow-hidden scroll-mt-28">
       <div className="container mx-auto px-6">
         <div className="grid md:grid-cols-2 gap-20 items-center">
           <div className="relative">
@@ -946,7 +1156,7 @@ const FounderSpotlight = () => {
             <span className="text-gold font-mono uppercase tracking-widest text-sm mb-4 block">OUR FOUNDER</span>
             <h2 className="text-5xl md:text-6xl text-navy mb-8">Meet Pooja Solanki</h2>
             
-            <p className="text-navy/70 text-xl leading-relaxed mb-10">
+            <p className="text-navy/70 text-lg md:text-xl leading-relaxed mb-10">
               With over 15 years of experience in international education, Pooja has built Academic Pilots as a beacon for students seeking more than just an admission — she builds career legacies.
             </p>
             
@@ -959,7 +1169,7 @@ const FounderSpotlight = () => {
             </div>
             
             <blockquote className="border-l-4 border-gold pl-8 italic">
-              <p className="text-navy font-hero text-3xl text-gold mb-4 leading-snug">
+              <p className="text-navy font-hero text-2xl md:text-3xl text-gold mb-4 leading-snug">
                 "We don't just process applications. We architect futures. Every student's journey is a flight path to greatness."
               </p>
               <cite className="text-navy/60 font-mono text-sm uppercase">— Pooja Solanki, Founder</cite>
@@ -982,14 +1192,14 @@ const ServicesGrid = () => {
   ];
 
   return (
-    <section id="services" className="py-32 bg-navy/5">
+    <section id="services" className="py-16 md:py-32 bg-navy/5 scroll-mt-28">
       <div className="container mx-auto px-6">
         <div className="text-center mb-20">
           <span className="text-gold font-mono uppercase tracking-widest text-sm mb-4 block">EXPERT SERVICES</span>
-          <h2 className="text-5xl text-navy">Comprehensive Guidance</h2>
+          <h2 className="text-4xl md:text-5xl text-navy">Comprehensive Guidance</h2>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-5 md:gap-8">
           {services.map((service, i) => (
             <div 
               key={i} 
@@ -1021,7 +1231,7 @@ const Testimonials = () => {
   const marqueeReviews = [...reviews, ...reviews];
 
   return (
-    <section className="py-20 bg-navy relative overflow-hidden">
+    <section className="py-16 md:py-20 bg-navy relative overflow-hidden">
       <div className="container mx-auto px-6 relative z-10">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
           <div>
@@ -1069,10 +1279,10 @@ const Differentiators = () => {
   ];
 
   return (
-    <section className="py-32 bg-white">
+    <section className="py-16 md:py-32 bg-white">
       <div className="container mx-auto px-6">
         {blocks.map((block, i) => (
-          <div key={i} className={`flex flex-col md:flex-row items-center gap-20 mb-32 last:mb-0 ${i % 2 !== 0 ? 'md:flex-row-reverse' : ''}`}>
+          <div key={i} className={`flex flex-col md:flex-row items-center gap-10 md:gap-20 mb-16 md:mb-32 last:mb-0 ${i % 2 !== 0 ? 'md:flex-row-reverse' : ''}`}>
             <div className="flex-1 relative">
               <div className="text-gold/10 font-mono text-[180px] absolute -top-24 -left-10 leading-none select-none">
                 {block.num}
@@ -1083,7 +1293,7 @@ const Differentiators = () => {
                 <p className="text-navy/60 text-xl leading-relaxed max-w-lg">{block.body}</p>
               </div>
             </div>
-            <div className="flex-1 w-full h-[400px] bg-navy/5 rounded-3xl overflow-hidden relative group">
+            <div className="flex-1 w-full h-[250px] md:h-[400px] bg-navy/5 rounded-3xl overflow-hidden relative group">
                <img src={block.img} alt={block.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                <div className="absolute inset-0 bg-gradient-to-br from-navy/70 via-navy/20 to-gold/20" />
                <div className="absolute bottom-8 left-8 right-8">
@@ -1180,7 +1390,7 @@ _Submitted via Academic Pilots Website_`;
   `;
 
   return (
-    <section className="relative py-32 overflow-hidden bg-navy">
+    <section id="consultation" className="relative py-20 md:py-32 overflow-hidden bg-navy scroll-mt-28">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-gold/3 blur-[120px]" />
@@ -1408,30 +1618,36 @@ _Submitted via Academic Pilots Website_`;
 
 const Footer = () => {
   return (
-    <footer className="bg-navy/95 text-white pt-24 pb-12 border-t border-white/5">
+    <footer className="bg-navy/95 text-white pt-12 md:pt-24 pb-24 md:pb-12 border-t border-white/5">
       <div className="container mx-auto px-6">
-        <div className="grid md:grid-cols-4 gap-16 mb-20">
+        <div className="grid md:grid-cols-4 gap-10 md:gap-16 mb-12 md:mb-20">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-3 mb-8">
-              <img src={logoSrc} alt="Academic Pilots" className="h-20 w-auto object-contain" />
+              <button 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="cursor-pointer"
+                aria-label="Scroll to top"
+              >
+                <img src={logoSrc} alt="Academic Pilots" className="h-20 w-auto object-contain drop-shadow-logo" />
+              </button>
             </div>
             <p className="text-white/60 leading-relaxed mb-8">
               Tailored Paths to Global Careers. Architecting global futures through precision-driven education consultancy.
             </p>
             <div className="flex gap-4">
-              <a href="https://www.instagram.com/academicpilots" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-gold transition-colors"><Instagram className="w-5 h-5" /></a>
-              <a href="#" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-gold transition-colors"><Facebook className="w-5 h-5" /></a>
-              <a href="#" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-gold transition-colors"><Linkedin className="w-5 h-5" /></a>
+              <a href="https://www.instagram.com/academicpilots" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-gold transition-colors touch-target"><Instagram className="w-5 h-5" /></a>
+              <a href="#" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-gold transition-colors touch-target"><Facebook className="w-5 h-5" /></a>
+              <a href="#" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-gold transition-colors touch-target"><Linkedin className="w-5 h-5" /></a>
             </div>
           </div>
           
           <div>
             <h4 className="text-gold font-mono text-sm uppercase tracking-widest mb-8">Quick Links</h4>
             <ul className="space-y-4 text-white/60">
-              <li><a href="#destinations" className="hover:text-white transition-colors">Destinations</a></li>
-              <li><a href="#process" className="hover:text-white transition-colors">Our Process</a></li>
-              <li><a href="#services" className="hover:text-white transition-colors">Services</a></li>
-              <li><a href="#founder" className="hover:text-white transition-colors">About Us</a></li>
+              <li><a href="#destinations" onClick={(e) => { e.preventDefault(); scrollToSection('destinations'); }} className="hover:text-white transition-colors touch-target inline-flex items-center">Destinations</a></li>
+              <li><a href="#process" onClick={(e) => { e.preventDefault(); scrollToSection('process'); }} className="hover:text-white transition-colors touch-target inline-flex items-center">Our Process</a></li>
+              <li><a href="#services" onClick={(e) => { e.preventDefault(); scrollToSection('services'); }} className="hover:text-white transition-colors touch-target inline-flex items-center">Services</a></li>
+              <li><a href="#founder" onClick={(e) => { e.preventDefault(); scrollToSection('founder'); }} className="hover:text-white transition-colors touch-target inline-flex items-center">About Us</a></li>
             </ul>
           </div>
           
@@ -1532,7 +1748,8 @@ const ScrollProgressBar = () => {
 };
 
 const FloatingButtons = () => {
-  const [show, setShow] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const [callPopupOpen, setCallPopupOpen] = useState(false);
   const [waPopupOpen, setWaPopupOpen] = useState(false);
   const callPopupRef = useRef<HTMLDivElement>(null);
@@ -1542,7 +1759,18 @@ const FloatingButtons = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      setShow(window.scrollY > window.innerHeight * 0.5);
+      const scrolledPastThreshold = window.scrollY > window.innerHeight * 0.5;
+
+      // Back-to-top: show after scrolling past 50% of viewport, stays visible forever
+      setShowBackToTop(scrolledPastThreshold);
+
+      // WhatsApp/Call: hide when the consultation section comes into view
+      const consultationEl = document.getElementById('consultation');
+      const reachedConsultation = consultationEl
+        ? window.scrollY + window.innerHeight * 0.5 > consultationEl.offsetTop
+        : false;
+      setShowActions(scrolledPastThreshold && !reachedConsultation);
+
       if (callPopupOpen) setCallPopupOpen(false);
       if (waPopupOpen) setWaPopupOpen(false);
     };
@@ -1617,21 +1845,20 @@ const FloatingButtons = () => {
   ];
 
   return (
-    <>
-      {/* Left — Call button with popup */}
-      <div ref={callBtnRef} className={`fixed bottom-8 left-8 z-50 transition-all duration-500 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+    <>        {/* Left — Call button with popup */}
+      <div ref={callBtnRef} className={`fixed bottom-4 md:bottom-8 left-4 md:left-8 z-50 transition-all duration-500 ${showActions ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
         <button
           onClick={() => { setCallPopupOpen((prev) => !prev); if (waPopupOpen) setWaPopupOpen(false); }}
           aria-label="Call us"
-          className="group flex h-14 w-14 items-center justify-center rounded-full bg-gold text-navy shadow-xl shadow-gold/30 transition-all duration-300 hover:scale-110 hover:shadow-gold/50"
+          className="group flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-gold text-navy shadow-xl shadow-gold/30 transition-all duration-300 hover:scale-110 hover:shadow-gold/50"
         >
-          <Phone className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
+          <Phone className="h-5 w-5 md:h-6 md:w-6 transition-transform duration-300 group-hover:scale-110" />
         </button>
 
         {/* Call Popup */}
         <div
           ref={callPopupRef}
-          className={`absolute bottom-20 left-0 w-72 origin-bottom-left transition-all duration-300 ${
+          className={`absolute bottom-20 left-0 w-72 max-w-[85vw] origin-bottom-left transition-all duration-300 ${
             callPopupOpen
               ? 'opacity-100 scale-100 pointer-events-auto'
               : 'opacity-0 scale-90 pointer-events-none'
@@ -1671,13 +1898,13 @@ const FloatingButtons = () => {
       </div>
 
       {/* Right — WhatsApp popup + back to top */}
-      <div ref={waBtnRef} className={`fixed bottom-8 right-8 z-50 flex flex-col gap-3 transition-all duration-500 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-        {/* WhatsApp button + popup (stacked together) */}
-        <div className="relative">
+      <div className={`fixed bottom-4 md:bottom-8 right-4 md:right-8 z-50 flex flex-col gap-3 transition-all duration-500 ${showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+        {/* WhatsApp button + popup — hides when reaching consultation */}
+        <div className={`relative overflow-hidden transition-all duration-500 ${showActions ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
           <button
             onClick={() => { setWaPopupOpen((prev) => !prev); if (callPopupOpen) setCallPopupOpen(false); }}
             aria-label="Chat on WhatsApp"
-            className="group flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-[#25D366]/30 transition-all duration-300 hover:scale-110 hover:shadow-[#25D366]/50"
+            className="group flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-[#25D366]/30 transition-all duration-300 hover:scale-110 hover:shadow-[#25D366]/50"
           >
             <WhatsAppIcon />
           </button>
@@ -1685,7 +1912,7 @@ const FloatingButtons = () => {
           {/* WhatsApp Popup */}
           <div
             ref={waPopupRef}
-            className={`absolute bottom-20 right-0 w-80 origin-bottom-right transition-all duration-300 ${
+            className={`absolute bottom-20 right-0 w-80 max-w-[85vw] origin-bottom-right transition-all duration-300 ${
               waPopupOpen
                 ? 'opacity-100 scale-100 pointer-events-auto'
                 : 'opacity-0 scale-90 pointer-events-none'
@@ -1743,9 +1970,15 @@ const FloatingButtons = () => {
         <button
           onClick={scrollToTop}
           aria-label="Back to top"
-          className="group flex h-14 w-14 items-center justify-center rounded-full bg-navy text-gold shadow-xl shadow-navy/30 border border-gold/30 transition-all duration-300 hover:bg-gold hover:text-navy hover:scale-110 hover:shadow-gold/30"
+          className="group relative flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-navy text-gold shadow-xl shadow-navy/30 border border-gold/30 transition-all duration-500 ease-out hover:bg-gold hover:text-navy hover:scale-125 hover:shadow-2xl hover:shadow-gold/40 active:scale-90"
         >
-          <ArrowUp className="h-6 w-6 transition-transform duration-300 group-hover:-translate-y-1" />
+          {/* Expanding sonar rings */}
+          <span className="absolute inset-0 rounded-full border border-gold/30 opacity-0 group-hover:opacity-100 group-hover:scale-[1.8] transition-all duration-700 ease-out pointer-events-none" />
+          <span className="absolute inset-0 rounded-full border-2 border-gold/10 opacity-0 group-hover:opacity-60 group-hover:scale-[1.4] transition-all duration-500 delay-75 ease-out pointer-events-none" />
+          {/* Shine overlay */}
+          <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/0 via-white/15 to-white/0 opacity-0 -translate-x-full group-hover:opacity-100 group-hover:translate-x-full transition-all duration-700 ease-out pointer-events-none" />
+          
+          <ArrowUp className="relative z-10 h-5 w-5 md:h-6 md:w-6 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:scale-125" />
         </button>
       </div>
     </>
