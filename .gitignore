@@ -27,3 +27,7 @@ dist-ssr
 
 # Debug scripts
 scripts/serve-test.js
+*.report.html
+*.report.json
+stats.html
+stats.json
